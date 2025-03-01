@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
-import { pipe } from "@screenpipe/js";
+import { pipe } from "@screenpipe/js"
 import { getDb } from "@/lib/db";
 import { rawData, sessions } from "@/lib/schema";
 import { eq } from "drizzle-orm";
@@ -30,19 +30,25 @@ export async function POST(req: Request) {
 
     // Query Screenpipe for data
     const results = await pipe.queryScreenpipe({
-      startTime: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-      contentType: 'ocr',
-      windowName: 'Feed | LinkedIn',
+      startTime: existingSession.startTime,
+      limit: 2000,
+      contentType: "all"
     });
 
+    console.log("RESULTS are:", results?.data)
+    results!.data.map((d) => {
+      console.log("TEXTTTTT START:")
+      console.log(JSON.stringify(d.content))
+      console.log("TEXT ENDDD")
+    })
+    console.log("RESULTS STOPPED:")
     // Process the results if they exist
     if (results && results.data.length > 0) {
       const now = new Date().toISOString();
       let rawDataId = "";
       
-      // Use a transaction to ensure data consistency
+
       await db.transaction(async (tx) => {
-        // Insert the raw data and get the ID
         const rawDataResult = await tx.insert(rawData).values({
           id: crypto.randomUUID(),
           sessionId: sessionId,

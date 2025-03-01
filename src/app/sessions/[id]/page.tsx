@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, RefreshCw, Briefcase, MapPin, Calendar, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function SessionDetailPage() {
   const params = useParams();
@@ -15,6 +16,7 @@ export default function SessionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sessionData, setSessionData] = useState<any>(null);
+  const [selectedJob, setSelectedJob] = useState<any>(null);
 
   const fetchSessionData = async () => {
     setLoading(true);
@@ -24,6 +26,7 @@ export default function SessionDetailPage() {
         throw new Error("Failed to fetch session data");
       }
       const data = await response.json();
+      console.log("Data from BE is", data);
       setSessionData(data);
       setError(null);
     } catch (err) {
@@ -74,7 +77,70 @@ export default function SessionDetailPage() {
   }
 
   const { session, jobData } = sessionData;
-  const jobPostings = jobData?.jobPostings || [];
+  
+  // Transform job postings to have consistent structure
+  const jobPostings = (jobData?.jobPostings || []).map((job: any) => {
+    // Extract job details from the expanded backend data structure
+    const title = job.basicInfo?.title || job.role || "Unknown Role";
+    const company = job.sourceInfo?.company?.name || job.company || "Unknown Company";
+    
+    // Format work type and location together
+    const workplaceType = job.basicInfo?.workplaceType || "Unknown";
+    const location = job.basicInfo?.location || job.location || "-";
+    const formattedLocation = workplaceType?.toLowerCase().includes("remote") 
+      ? `Remote (${location})` 
+      : location;
+    
+    // Format salary properly
+    const salary = job.basicInfo?.compensation?.salary || job.salaryInfo || "-";
+    
+    // Get experience requirement
+    const experience = job.basicInfo?.experienceRequired || job.experienceRequired || "-";
+    
+    // Get posting date
+    const postedDate = job.basicInfo?.postedDate || "-";
+    
+    // Determine workplace type for badge
+    let workTypeDisplay = "Unknown";
+    let workTypeBadgeVariant: "default" | "outline" | "secondary" | "destructive" = "outline";
+    
+    if (workplaceType) {
+      if (workplaceType.toLowerCase().includes("remote")) {
+        workTypeDisplay = "Remote";
+        workTypeBadgeVariant = "default";
+      } else if (workplaceType.toLowerCase().includes("hybrid")) {
+        workTypeDisplay = "Hybrid";
+        workTypeBadgeVariant = "secondary";
+      } else {
+        workTypeDisplay = "In-office";
+        workTypeBadgeVariant = "outline";
+      }
+    }
+    
+    // Get apply link if available
+    const applyLink = job.applicationInfo?.applyLink || job.sourceInfo?.url || null;
+    
+    return {
+      ...job,
+      title,
+      company,
+      formattedLocation,
+      salary,
+      experience,
+      postedDate,
+      workTypeDisplay,
+      workTypeBadgeVariant,
+      applyLink
+    };
+  });
+
+  const showJobDetails = (job: any) => {
+    setSelectedJob(job);
+  };
+
+  const closeJobDetails = () => {
+    setSelectedJob(null);
+  };
 
   return (
     <div className="container mx-auto py-8">
@@ -125,7 +191,7 @@ export default function SessionDetailPage() {
         <CardHeader>
           <CardTitle>Job Postings ({jobPostings.length})</CardTitle>
           <CardDescription>
-            Jobs captured during your LinkedIn browsing session
+            Jobs captured during your browsing session
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -134,37 +200,240 @@ export default function SessionDetailPage() {
               <p className="text-muted-foreground">No job postings were found in this session.</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Experience</TableHead>
-                  <TableHead>Salary</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {jobPostings.map((job: any) => (
-                  <TableRow key={job.id}>
-                    <TableCell className="font-medium">{job.role || "Unknown Role"}</TableCell>
-                    <TableCell>{job.company || "Unknown Company"}</TableCell>
-                    <TableCell>{job.location || "-"}</TableCell>
-                    <TableCell>{job.experienceRequired || "-"}</TableCell>
-                    <TableCell>{job.salaryInfo || "-"}</TableCell>
-                    <TableCell>
-                      <Button variant="outline" size="sm" onClick={() => alert("Job details: " + job.rawText)}>
-                        View Details
-                      </Button>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Company</TableHead>
+                    <TableHead>Work Type</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Experience</TableHead>
+                    <TableHead>Salary</TableHead>
+                    <TableHead>Posted</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {jobPostings.map((job: any) => (
+                    <TableRow key={job.id} className="hover:bg-muted/50">
+                      <TableCell className="font-medium">{job.title}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          {job.company}
+                          {job.sourceInfo?.company?.size && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Briefcase className="ml-1 h-4 w-4 text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{job.sourceInfo.company.size}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={job.workTypeBadgeVariant}>
+                          {job.workTypeDisplay}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <MapPin className="mr-1 h-4 w-4 text-muted-foreground" />
+                          {job.formattedLocation}
+                        </div>
+                      </TableCell>
+                      <TableCell>{job.experience}</TableCell>
+                      <TableCell>
+                        <span className="font-medium">{job.salary}</span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <Calendar className="mr-1 h-4 w-4 text-muted-foreground" />
+                          {job.postedDate}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            onClick={() => showJobDetails(job)}
+                          >
+                            Details
+                          </Button>
+                          {job.applyLink && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(job.applyLink, '_blank')}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
+
+      {selectedJob && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <div className="flex justify-between">
+                <div>
+                  <CardTitle>{selectedJob.title}</CardTitle>
+                  <CardDescription className="flex items-center mt-1">
+                    <span className="font-medium">{selectedJob.company}</span>
+                    {selectedJob.sourceInfo?.platform && (
+                      <Badge variant="outline" className="ml-2">
+                        {selectedJob.sourceInfo.platform}
+                      </Badge>
+                    )}
+                  </CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" onClick={closeJobDetails}>
+                  ✕
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <h3 className="text-sm font-semibold mb-1">Location</h3>
+                  <p className="flex items-center">
+                    <MapPin className="mr-1 h-4 w-4 text-muted-foreground" />
+                    {selectedJob.formattedLocation} 
+                    <Badge variant={selectedJob.workTypeBadgeVariant} className="ml-2">
+                      {selectedJob.workTypeDisplay}
+                    </Badge>
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold mb-1">Compensation</h3>
+                  <p>{selectedJob.salary || "Not specified"}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold mb-1">Experience</h3>
+                  <p>{selectedJob.experience || "Not specified"}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold mb-1">Posted</h3>
+                  <p className="flex items-center">
+                    <Calendar className="mr-1 h-4 w-4 text-muted-foreground" />
+                    {selectedJob.postedDate || "Not specified"}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Company details */}
+              {selectedJob.sourceInfo?.company && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold mb-2">About the Company</h3>
+                  <div className="bg-muted p-4 rounded-md">
+                    {selectedJob.sourceInfo.company.description && (
+                      <p className="mb-2">{selectedJob.sourceInfo.company.description}</p>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                      {selectedJob.sourceInfo.company.size && (
+                        <div>
+                          <span className="text-muted-foreground">Size:</span> {selectedJob.sourceInfo.company.size}
+                        </div>
+                      )}
+                      {selectedJob.sourceInfo.company.industry && (
+                        <div>
+                          <span className="text-muted-foreground">Industry:</span> {selectedJob.sourceInfo.company.industry}
+                        </div>
+                      )}
+                      {selectedJob.companyInsights?.growthStage && (
+                        <div>
+                          <span className="text-muted-foreground">Stage:</span> {selectedJob.companyInsights.growthStage}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Role details */}
+              {selectedJob.roleDetails && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold mb-2">Role Details</h3>
+                  {selectedJob.roleDetails.description && (
+                    <p className="mb-4">{selectedJob.roleDetails.description}</p>
+                  )}
+                  
+                  {selectedJob.roleDetails.responsibilities && selectedJob.roleDetails.responsibilities.length > 0 && (
+                    <div className="mb-3">
+                      <h4 className="text-sm text-muted-foreground mb-1">Responsibilities:</h4>
+                      <ul className="list-disc pl-5">
+                        {selectedJob.roleDetails.responsibilities.map((item: string, idx: number) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {selectedJob.roleDetails.requiredSkills && selectedJob.roleDetails.requiredSkills.length > 0 && (
+                    <div>
+                      <h4 className="text-sm text-muted-foreground mb-1">Required Skills:</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedJob.roleDetails.requiredSkills.map((skill: string, idx: number) => (
+                          <Badge key={idx} variant="secondary">{skill}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedJob.roleDetails.techStack && selectedJob.roleDetails.techStack.length > 0 && (
+                    <div className="mt-3">
+                      <h4 className="text-sm text-muted-foreground mb-1">Tech Stack:</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedJob.roleDetails.techStack.map((tech: string, idx: number) => (
+                          <Badge key={idx} variant="outline">{tech}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Application info */}
+              {selectedJob.applicationInfo && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Application Process</h3>
+                  {selectedJob.applicationInfo.applicationProcess && (
+                    <p className="mb-2">{selectedJob.applicationInfo.applicationProcess}</p>
+                  )}
+                  {selectedJob.applicationInfo.referralOption && (
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Referral available: {selectedJob.applicationInfo.referralOption}
+                    </p>
+                  )}
+                  {selectedJob.applyLink && (
+                    <Button 
+                      className="mt-2"
+                      onClick={() => window.open(selectedJob.applyLink, '_blank')}
+                    >
+                      Apply Now
+                      <ExternalLink className="ml-2 h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
