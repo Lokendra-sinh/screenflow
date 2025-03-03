@@ -50,6 +50,8 @@ export async function processDailyPulse(sessionId: string, rawDataId: string) {
       // Process with Claude
       const systemPrompt = dailyPulsePrompt();
       const processedSummary = await callClaudeWithRetry(systemPrompt, contentForProcessing);
+
+      console.log("DAILY PULSE DATA processed by CLAUDE:", processedSummary)
   
       if (!processedSummary) {
         throw new Error('Failed to process data with Claude');
