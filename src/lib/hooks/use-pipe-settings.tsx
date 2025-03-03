@@ -17,7 +17,7 @@ rules for the investigation:
 - highlight potential opportunities or connections
 - track project progress and blockers mentioned
 
-style rules:
+style rules:F
 - always put people's names in double square brackets, eg: [[John Doe]] to link to their notes, same for companies, eg: [[Google]], or projects, eg: [[Project X]]
 - keep it real and conversational
 - use bullet points for clarity
