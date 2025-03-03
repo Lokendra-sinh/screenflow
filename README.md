@@ -2,9 +2,10 @@
 
 Screenflow is a powerful web application that captures, analyzes, and optimizes your digital activity built entirely on top of Screenpipe. It provides valuable insights into your productivity patterns, context switching, focus periods, and can automatically identify job postings during your browsing sessions. 
 
-<img width="1440" alt="image" src="https://github.com/user-attachments/assets/23bc0a54-8d9d-476c-ad63-d687ba96b3a5" />
-<img width="1440" alt="image" src="https://github.com/user-attachments/assets/d1bd8f67-0af8-4a7c-ae3e-760656d6cee6" />
-<img width="1440" alt="image" src="https://github.com/user-attachments/assets/4710cc52-f454-4dc8-90d8-518286f745ff" />
+<img width="1440" alt="image" src="https://github.com/user-attachments/assets/dae4dbc8-43ee-4afb-bace-1c226c1a0d6e" />
+<img width="1440" alt="image" src="https://github.com/user-attachments/assets/03180ebb-a82f-4bcd-a0f9-d360cd78c6fe" />
+<img width="1440" alt="image" src="https://github.com/user-attachments/assets/2017c81a-835e-4a99-82bd-2af839785528" />
+
 
 
 ## Features
