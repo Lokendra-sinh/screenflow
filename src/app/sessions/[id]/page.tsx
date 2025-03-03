@@ -6,9 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, RefreshCw, Briefcase, MapPin, Calendar, ExternalLink } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, RefreshCw, Briefcase, MapPin, Calendar, ExternalLink, FileText, Activity } from "lucide-react";
 import Link from "next/link";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import DailyPulsePage from "@/components/daily-pulse";
 
 export default function SessionDetailPage() {
   const params = useParams();
@@ -17,6 +19,7 @@ export default function SessionDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [sessionData, setSessionData] = useState<any>(null);
   const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState("jobs");
 
   const fetchSessionData = async () => {
     setLoading(true);
@@ -47,7 +50,7 @@ export default function SessionDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle>Loading Session Data...</CardTitle>
-            <CardDescription>Please wait while we load the job postings</CardDescription>
+            <CardDescription>Please wait while we load the session data</CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center py-8">
             <RefreshCw className="h-8 w-8 animate-spin text-primary" />
@@ -76,7 +79,7 @@ export default function SessionDetailPage() {
     );
   }
 
-  const { session, jobData } = sessionData;
+  const { jobData } = sessionData;
   
   // Transform job postings to have consistent structure
   const jobPostings = (jobData?.jobPostings || []).map((job: any) => {
@@ -151,140 +154,136 @@ export default function SessionDetailPage() {
         </Link>
       </div>
 
-      <Card className="mb-8">
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>Session Details</CardTitle>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="jobs" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Job Postings
+          </TabsTrigger>
+          <TabsTrigger value="pulse" className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Daily Pulse
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Jobs Tab Content */}
+        <TabsContent value="jobs" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Job Postings ({jobPostings.length})</CardTitle>
               <CardDescription>
-                Started on {new Date(session.startTime).toLocaleString()}
+                Jobs captured during your browsing session
               </CardDescription>
-            </div>
-            <Badge variant={session.status === "complete" ? "default" : "secondary"}>
-              {session.status}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-muted p-4 rounded-md">
-              <div className="text-sm text-muted-foreground">Duration</div>
-              <div className="text-2xl font-semibold">
-                {Math.floor(session.duration / 60)}m {session.duration % 60}s
-              </div>
-            </div>
-            <div className="bg-muted p-4 rounded-md">
-              <div className="text-sm text-muted-foreground">Jobs Found</div>
-              <div className="text-2xl font-semibold">{jobPostings.length}</div>
-            </div>
-            <div className="bg-muted p-4 rounded-md">
-              <div className="text-sm text-muted-foreground">Processing Time</div>
-              <div className="text-2xl font-semibold">
-                {Math.floor(session.processingTime / 60)}m {session.processingTime % 60}s
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardHeader>
+            <CardContent>
+              {jobPostings.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">No job postings were found in this session.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Work Type</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Experience</TableHead>
+                        <TableHead>Salary</TableHead>
+                        <TableHead>Posted</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {jobPostings.map((job: any) => (
+                        <TableRow key={job.id} className="hover:bg-muted/50">
+                          <TableCell className="font-medium">{job.title}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center">
+                              {job.company}
+                              {job.sourceInfo?.company?.size && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Briefcase className="ml-1 h-4 w-4 text-muted-foreground" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>{job.sourceInfo.company.size}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={job.workTypeBadgeVariant}>
+                              {job.workTypeDisplay}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center">
+                              <MapPin className="mr-1 h-4 w-4 text-muted-foreground" />
+                              {job.formattedLocation}
+                            </div>
+                          </TableCell>
+                          <TableCell>{job.experience}</TableCell>
+                          <TableCell>
+                            <span className="font-medium">{job.salary}</span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center">
+                              <Calendar className="mr-1 h-4 w-4 text-muted-foreground" />
+                              {job.postedDate}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-2">
+                              <Button 
+                                variant="default" 
+                                size="sm" 
+                                onClick={() => showJobDetails(job)}
+                              >
+                                Details
+                              </Button>
+                              {job.applyLink && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => window.open(job.applyLink, '_blank')}
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* Daily Pulse Tab Content */}
+        <TabsContent value="pulse" className="mt-6">
+          <Card>
+            {/* <CardHeader>
+              <CardTitle>Daily Pulse Dashboard</CardTitle>
+              <CardDescription>
+                Visualizing your digital activity patterns and focus metrics
+              </CardDescription>
+            </CardHeader> */}
+            <CardContent>
+              <DailyPulsePage />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Job Postings ({jobPostings.length})</CardTitle>
-          <CardDescription>
-            Jobs captured during your browsing session
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {jobPostings.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">No job postings were found in this session.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Work Type</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Experience</TableHead>
-                    <TableHead>Salary</TableHead>
-                    <TableHead>Posted</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {jobPostings.map((job: any) => (
-                    <TableRow key={job.id} className="hover:bg-muted/50">
-                      <TableCell className="font-medium">{job.title}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          {job.company}
-                          {job.sourceInfo?.company?.size && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <Briefcase className="ml-1 h-4 w-4 text-muted-foreground" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{job.sourceInfo.company.size}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={job.workTypeBadgeVariant}>
-                          {job.workTypeDisplay}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <MapPin className="mr-1 h-4 w-4 text-muted-foreground" />
-                          {job.formattedLocation}
-                        </div>
-                      </TableCell>
-                      <TableCell>{job.experience}</TableCell>
-                      <TableCell>
-                        <span className="font-medium">{job.salary}</span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <Calendar className="mr-1 h-4 w-4 text-muted-foreground" />
-                          {job.postedDate}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button 
-                            variant="default" 
-                            size="sm" 
-                            onClick={() => showJobDetails(job)}
-                          >
-                            Details
-                          </Button>
-                          {job.applyLink && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => window.open(job.applyLink, '_blank')}
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
+      {/* Job Details Modal */}
       {selectedJob && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">

@@ -1,14 +1,18 @@
-import { NextResponse } from "next/server";
+import {  NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { sessions, processedData } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+
+export async function GET(req: Request, { params } : { params: Promise<{id: string}>}) {
   try {
-    const sessionId = params.id;
+    const sessionId  = (await params).id
+
+
+    console.log("session ID is", sessionId)
+
+
+    console.log("CALL to GET SESSION with session id:", sessionId)
     
     if (!sessionId) {
       return NextResponse.json({ error: "Session ID is required" }, { status: 400 });

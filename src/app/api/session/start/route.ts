@@ -77,7 +77,7 @@ export async function POST() {
       } catch (error) {
         console.error("Health check error:", error);
         attempts++;
-        setTimeout(checkHealth, 500);
+        setTimeout(checkHealth, 2000);
       }
     };
 

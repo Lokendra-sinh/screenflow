@@ -4,8 +4,9 @@ import { pipe } from "@screenpipe/js"
 import { getDb } from "@/lib/db";
 import { rawData, sessions } from "@/lib/schema";
 import { eq } from "drizzle-orm";
-import { processQueue } from "@/lib/queue";
 import crypto from "crypto";
+import { processDailyPulse } from "@/lib/processors/process-daily-pulse";
+import { processQueue } from "@/lib/queue";
 
 export async function POST(req: Request) {
   try {
@@ -19,8 +20,11 @@ export async function POST(req: Request) {
 
     const db = getDb();
 
-    // Verify the session exists before proceeding
-    const existingSession = await db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+    const existingSession = await db.select()
+      .from(sessions)
+      .where(eq(sessions.id, sessionId))
+      .get();
+      
     if (!existingSession) {
       return NextResponse.json({ 
         success: false, 
@@ -28,25 +32,15 @@ export async function POST(req: Request) {
       }, { status: 404 });
     }
 
-    // Query Screenpipe for data
     const results = await pipe.queryScreenpipe({
       startTime: existingSession.startTime,
       limit: 2000,
-      contentType: "all"
+      contentType: "ocr",
     });
 
-    console.log("RESULTS are:", results?.data)
-    results!.data.map((d) => {
-      console.log("TEXTTTTT START:")
-      console.log(JSON.stringify(d.content))
-      console.log("TEXT ENDDD")
-    })
-    console.log("RESULTS STOPPED:")
-    // Process the results if they exist
     if (results && results.data.length > 0) {
       const now = new Date().toISOString();
       let rawDataId = "";
-      
 
       await db.transaction(async (tx) => {
         const rawDataResult = await tx.insert(rawData).values({
@@ -58,30 +52,48 @@ export async function POST(req: Request) {
 
         rawDataId = rawDataResult[0].id;
 
-        // Update the session status
-        await tx.update(sessions).set({
-          status: 'captured',
-          endTime: now,
-        }).where(eq(sessions.id, sessionId));
+        await tx.update(sessions)
+          .set({
+            status: 'processing', 
+            endTime: now,
+          })
+          .where(eq(sessions.id, sessionId));
       });
 
-      console.log("Raw data ID captured:", rawDataId);
-
-      // Add to processing queue with correct sessionId and rawDataId
       processQueue.push({
-        sessionId: sessionId,
-        rawDataId: rawDataId,
+        sessionId,
+        rawDataId
       });
+
+      try {
+        processDailyPulse(sessionId, rawDataId)
+          .then(() => {
+            console.log(`Daily pulse processing completed for session ${sessionId}`);
+          })
+          .catch(error => {
+            console.error(`Error in daily pulse processing for session ${sessionId}:`, error);
+          });
+
+        await db.update(sessions)
+          .set({ status: 'complete' })
+          .where(eq(sessions.id, sessionId));
+          
+      } catch (error) {
+        console.error('Error processing session data:', error);
+        
+        await db.update(sessions)
+          .set({ status: 'error' })
+          .where(eq(sessions.id, sessionId));
+      }
     } else {
-      // Update session even if no results were found
-      const now = new Date().toISOString();
-      await db.update(sessions).set({
-        status: 'captured',
-        endTime: now,
-      }).where(eq(sessions.id, sessionId));
+      await db.update(sessions)
+        .set({
+          status: 'captured',
+          endTime: new Date().toISOString(),
+        })
+        .where(eq(sessions.id, sessionId));
     }
 
-    // Stop the Screenpipe process
     return new Promise((resolve) => {
       const killCmd = process.platform === 'win32'
         ? 'taskkill /F /IM screenpipe.exe'
@@ -98,7 +110,7 @@ export async function POST(req: Request) {
         
         return resolve(NextResponse.json({
           success: true,
-          message: "Screenpipe session stopped",
+          message: "Screenpipe session stopped and processing initiated",
         }));
       });
     });
@@ -108,6 +120,6 @@ export async function POST(req: Request) {
       success: false, 
       error: "Internal server error",
       details: e instanceof Error ? e.message : "Unknown error"
-    }, {status: 500});
+    }, { status: 500 });
   }
 }

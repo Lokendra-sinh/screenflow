@@ -42,7 +42,7 @@ export async function GET() {
       }
       
       // Calculate duration if session is complete
-      let duration = null;
+      let duration: null | number = null;
       if (session.endTime && session.startTime) {
         const start = new Date(session.startTime);
         const end = new Date(session.endTime);

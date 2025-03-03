@@ -4,16 +4,21 @@ import { eq } from "drizzle-orm";
 import crypto from 'crypto';
 import { callLLMWithData } from "./ai/callLLMWithData";
 
-
 interface QueueItem {
   sessionId: string;
   rawDataId: string;
 }
 
+// Define the screen data type to fix the type error
+interface ScreenDataItem {
+  timestamp: string;
+  windowName: string;
+  url: string;
+  text: string;
+}
 
 export const processQueue: QueueItem[] = [];
 let isProcessing = false;
-
 
 async function processItem(item: QueueItem) {
   const db = getDb();
@@ -21,12 +26,10 @@ async function processItem(item: QueueItem) {
   try {
     console.log(`Processing item: sessionId=${item.sessionId}, rawDataId=${item.rawDataId}`);
     
-
     await db.update(sessions)
       .set({ status: 'processing' })
       .where(eq(sessions.id, item.sessionId));
     
-
     const rawDataRecord = await db.select()
       .from(rawData)
       .where(eq(rawData.id, item.rawDataId))
@@ -36,7 +39,6 @@ async function processItem(item: QueueItem) {
       throw new Error(`Raw data not found with ID: ${item.rawDataId}`);
     }
     
-
     let parsedData;
     try {
       parsedData = JSON.parse(rawDataRecord.data);
@@ -46,13 +48,10 @@ async function processItem(item: QueueItem) {
       throw new Error("Failed to parse JSON data");
     }
     
-
     const cleanedData = cleanAndPrepareData(parsedData);
     
-
     const llmResponse = await callLLMWithData(cleanedData);
     
-
     await db.insert(processedData).values({
       id: crypto.randomUUID(),
       sessionId: item.sessionId,
@@ -60,7 +59,6 @@ async function processItem(item: QueueItem) {
       processedAt: new Date().toISOString()
     });
     
-
     await db.update(sessions)
       .set({ status: 'complete' })
       .where(eq(sessions.id, item.sessionId));
@@ -81,12 +79,12 @@ function cleanAndPrepareData(data: any) {
   // Check if data has the expected structure
   if (!data || !Array.isArray(data.data)) {
     console.warn("Data doesn't have expected structure:", data);
-    return { concatenatedText: "", screenData: [] };
+    return { concatenatedText: "", screenData: [] as ScreenDataItem[] };
   }
   
   // Extract and concatenate all text content from OCR items
   let concatenatedText = "";
-  const screenData = [];
+  const screenData: ScreenDataItem[] = [];
   
   // Sort the data by timestamp to maintain chronological order
   const sortedData = [...data.data].sort((a, b) => {
