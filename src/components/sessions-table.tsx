@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { 
   Table, 
   TableBody, 
@@ -52,40 +52,37 @@ type SessionsResponse = {
   totalJobsFound: number;
 };
 
+
+const fetchSessions = async (): Promise<SessionsResponse> => {
+  const response = await fetch('/api/sessions');
+  
+  if (!response.ok) {
+    throw new Error(`Error fetching sessions: ${response.status}`);
+  }
+  
+  return response.json();
+};
+
 export function SessionsTable() {
-  const [sessions, setSessions] = useState<SessionsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  
 
-  const fetchSessions = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/sessions');
-      
-      if (!response.ok) {
-        throw new Error(`Error fetching sessions: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      setSessions(data);
-      setError(null);
-    } catch (err) {
-      console.error("Failed to fetch sessions:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch sessions");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { 
+    data: sessions, 
+    isLoading: loading, 
+    error,
+    isError,
+    refetch
+  } = useQuery({
+    queryKey: ['sessions'],
+    queryFn: fetchSessions,
+    refetchInterval: 30000, 
+    staleTime: 10000, 
+    retry: 3, 
+  });
 
-  useEffect(() => {
-    fetchSessions();
-    
-    // Set up polling every 30 seconds
-    const intervalId = setInterval(fetchSessions, 30000);
-    
-    return () => clearInterval(intervalId);
-  }, []);
+  // Extract the error message
+  const errorMessage = error instanceof Error ? error.message : "Failed to fetch sessions";
   
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -124,7 +121,7 @@ export function SessionsTable() {
     );
   }
   
-  if (error) {
+  if (isError) {
     return (
       <Card className="w-full">
         <CardHeader>
@@ -133,11 +130,11 @@ export function SessionsTable() {
         </CardHeader>
         <CardContent>
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            <p>{error}</p>
+            <p>{errorMessage}</p>
             <Button 
               variant="outline" 
               className="mt-2"
-              onClick={fetchSessions}
+              onClick={() => refetch()}
             >
               <RefreshCwIcon className="mr-2 h-4 w-4" /> Try Again
             </Button>
@@ -160,7 +157,7 @@ export function SessionsTable() {
           <Button 
             variant="outline" 
             className="mt-4"
-            onClick={fetchSessions}
+            onClick={() => refetch()}
           >
             <RefreshCwIcon className="mr-2 h-4 w-4" /> Refresh
           </Button>
@@ -189,7 +186,7 @@ export function SessionsTable() {
             variant="outline" 
             size="sm" 
             className="ml-4"
-            onClick={fetchSessions}
+            onClick={() => refetch()}
           >
             <RefreshCwIcon className="h-4 w-4" />
           </Button>
@@ -253,13 +250,11 @@ export function SessionsTable() {
                 </TableCell>
                 <TableCell className="text-right">
                   {session.isActionable ? (
-
-                        <Link href={`/sessions/${session.id}`}>
-                          <Button variant="ghost" size="icon">
-                            <ArrowRightIcon className="h-4 w-4" />
-                          </Button>
-                        </Link>
-
+                    <Link href={`/sessions/${session.id}`}>
+                      <Button variant="ghost" size="icon">
+                        <ArrowRightIcon className="h-4 w-4" />
+                      </Button>
+                    </Link>
                   ) : (
                     <Button variant="ghost" size="sm" disabled>
                       <RefreshCwIcon size={16} className="animate-spin text-blue-500" />

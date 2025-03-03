@@ -13,7 +13,6 @@ export type DeepSeekOptions = {
     inputData: any,
     options: DeepSeekOptions = {}
   ): Promise<any> {
-    console.log("Calling DeepSeek API");
   
     // Normalize input data to string
     const normalizedInput = typeof inputData === 'string' 
@@ -64,7 +63,6 @@ export type DeepSeekOptions = {
   
       const responseData = await response.json();
 
-      console.log("Response from deepseek is", responseData)
       
       if (!responseData.choices?.[0]?.message?.content || 
           responseData.choices[0].message.content.trim() === '') {

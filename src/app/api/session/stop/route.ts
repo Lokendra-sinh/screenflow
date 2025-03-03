@@ -38,6 +38,8 @@ export async function POST(req: Request) {
       contentType: "ocr",
     });
 
+    console.log("PIPE RESULTS are:", results!.data)
+
     if (results && results.data.length > 0) {
       const now = new Date().toISOString();
       let rawDataId = "";
@@ -67,9 +69,6 @@ export async function POST(req: Request) {
 
       try {
         processDailyPulse(sessionId, rawDataId)
-          .then(() => {
-            console.log(`Daily pulse processing completed for session ${sessionId}`);
-          })
           .catch(error => {
             console.error(`Error in daily pulse processing for session ${sessionId}:`, error);
           });

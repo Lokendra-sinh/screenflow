@@ -43,10 +43,8 @@ export function usePipeSettings() {
 
   const loadSettings = async () => {
     try {
-      // Load screenpipe app settings
-      const screenpipeSettings = await getScreenpipeAppSettings();
 
-      console.log(screenpipeSettings);
+      const screenpipeSettings = await getScreenpipeAppSettings();
 
       const obsidianSettings = {
         ...(screenpipeSettings.customSettings?.obsidian && {

@@ -36,80 +36,133 @@ const ProductivityAnalysis = ({ productivityData }) => {
     switchingFrequency: 1
   };
 
-  // Format timestamps and durations
+  // Format timestamps and durations, with proper error handling
   const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
+    if (!timestamp) return "N/A";
+    
+    try {
+      const date = new Date(timestamp);
+      // Check if date is valid
+      if (isNaN(date.getTime())) return "N/A";
+      
+      return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
+    } catch (error) {
+      console.error("Error formatting time:", error);
+      return "N/A";
+    }
   };
 
   const formatDuration = (ms) => {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds}s`;
-  };
-
-  // Calculate total session time
-  const calculateTotalTime = () => {
-    if (data.highProductivityPeriods.length > 0 && data.lowProductivityPeriods.length > 0) {
-      const firstStart = new Date(data.highProductivityPeriods[0].startTime).getTime();
-      const lastEnd = new Date(data.lowProductivityPeriods[0].endTime).getTime();
-      return formatDuration(lastEnd - firstStart);
+    if (ms === undefined || ms === null || isNaN(ms)) return "0m 0s";
+    
+    try {
+      const seconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return `${minutes}m ${remainingSeconds}s`;
+    } catch (error) {
+      console.error("Error formatting duration:", error);
+      return "0m 0s";
     }
-    return "N/A";
   };
 
-  // Helper function to determine productivity status color
-  const getProductivityColor = (percentage) => {
-    if (percentage >= 70) return "text-emerald-600";
-    if (percentage >= 50) return "text-emerald-500";
-    return "text-emerald-400";
+  // Calculate total session time with error handling
+  const calculateTotalTime = () => {
+    try {
+      if (data?.highProductivityPeriods?.length > 0 && data?.lowProductivityPeriods?.length > 0) {
+        const firstStart = new Date(data.highProductivityPeriods[0].startTime).getTime();
+        const lastEnd = new Date(data.lowProductivityPeriods[0].endTime).getTime();
+        
+        if (!isNaN(firstStart) && !isNaN(lastEnd) && lastEnd > firstStart) {
+          return formatDuration(lastEnd - firstStart);
+        }
+      }
+      
+      // If there's only high productivity periods
+      if (data?.highProductivityPeriods?.length > 0) {
+        const period = data.highProductivityPeriods[0];
+        if (period.startTime && period.endTime) {
+          const start = new Date(period.startTime).getTime();
+          const end = new Date(period.endTime).getTime();
+          if (!isNaN(start) && !isNaN(end) && end > start) {
+            return formatDuration(end - start);
+          }
+        }
+        // If we have duration but not valid timestamps
+        if (period.duration) {
+          return formatDuration(period.duration);
+        }
+      }
+      
+      return "0m 0s";
+    } catch (error) {
+      console.error("Error calculating total time:", error);
+      return "0m 0s";
+    }
   };
+
+  // Safely access data with fallbacks
+  const getHighProductivityPeriod = () => {
+    return data?.highProductivityPeriods?.length > 0 ? data.highProductivityPeriods[0] : null;
+  };
+
+  const getLowProductivityPeriod = () => {
+    return data?.lowProductivityPeriods?.length > 0 ? data.lowProductivityPeriods[0] : null;
+  };
+
+  const highPeriod = getHighProductivityPeriod();
+  const lowPeriod = getLowProductivityPeriod();
+  const longestFocus = data?.longestFocusDuration || null;
+  const productivePercentage = data?.productiveTimePercentage || 0;
+  const switchFrequency = data?.switchingFrequency || 0;
+
+  const highPeriodDuration = highPeriod?.duration || 0;
+  const lowPeriodDuration = lowPeriod?.duration || 0;
+  const longestFocusDuration = longestFocus?.duration || 0;
   
   return (
-    <div className="w-full bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 rounded-xl">
+    <div className="w-full p-6 rounded-lg">
       <div className="space-y-6">
         {/* Main Productivity Indicator */}
-        <Card className="border-emerald-200 shadow-sm overflow-hidden">
+        <Card>
           <div className="flex flex-col lg:flex-row">
             <div className="flex-1 p-6 flex flex-col justify-center">
-              <h3 className="text-lg font-medium text-emerald-800 mb-2">Productivity Score</h3>
+              <h3 className="text-lg font-medium mb-2">Productivity Score</h3>
               
               <div className="flex items-center space-x-4 mb-4">
-                <div className="text-5xl font-bold text-emerald-700">{data.productiveTimePercentage}%</div>
+                <div className="text-5xl font-bold">{productivePercentage}%</div>
                 <div className="flex flex-col">
-                  <Badge className="mb-1 bg-emerald-600">
+                  <Badge className="mb-1 bg-secondary text-secondary-foreground">
                     <Clock className="h-3 w-3 mr-1" />
                     {calculateTotalTime()} total
                   </Badge>
-                  <Badge variant="outline" className="border-emerald-200">
+                  <Badge variant="outline" className="border-border">
                     <RefreshCw className="h-3 w-3 mr-1" />
-                    {data.switchingFrequency} context switch
+                    {switchFrequency} {switchFrequency === 1 ? "context switch" : "context switches"}
                   </Badge>
                 </div>
               </div>
               
               <Progress
-                value={data.productiveTimePercentage}
-                className="h-3 bg-emerald-100"
-                indicatorClassName="bg-emerald-600"
+                value={productivePercentage}
+                className="h-3 bg-secondary"
               />
             </div>
             
-            <div className="lg:w-1/3 bg-emerald-50 p-6 border-l border-emerald-100">
-              <h4 className="font-medium text-emerald-800 mb-3">Focus Breakdown</h4>
+            <div className="lg:w-1/3 bg-muted p-6 border-l border-border">
+              <h4 className="font-medium mb-3">Focus Breakdown</h4>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between items-center">
-                  <span>High Productivity</span>
-                  <span className="font-medium">{formatDuration(data.highProductivityPeriods[0].duration)}</span>
+                  <span className="text-muted-foreground">High Productivity</span>
+                  <span className="font-medium">{formatDuration(highPeriodDuration)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span>Low Productivity</span>
-                  <span className="font-medium">{formatDuration(data.lowProductivityPeriods[0].duration)}</span>
+                  <span className="text-muted-foreground">Low Productivity</span>
+                  <span className="font-medium">{formatDuration(lowPeriodDuration)}</span>
                 </div>
-                <div className="flex justify-between items-center pt-2 border-t border-emerald-200 mt-2">
-                  <span>Longest Focus</span>
-                  <span className="font-medium">{formatDuration(data.longestFocusDuration.duration)}</span>
+                <div className="flex justify-between items-center pt-2 border-t border-border mt-2">
+                  <span className="text-muted-foreground">Longest Focus</span>
+                  <span className="font-medium">{formatDuration(longestFocusDuration)}</span>
                 </div>
               </div>
             </div>
@@ -119,95 +172,105 @@ const ProductivityAnalysis = ({ productivityData }) => {
         {/* Productivity Periods Comparison */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* High Productivity Period */}
-          <Card className="border-emerald-200 shadow-sm">
-            <CardHeader className="pb-2 border-b border-emerald-100">
+          <Card>
+            <CardHeader className="pb-2 border-b border-border">
               <div className="flex justify-between items-center">
-                <CardTitle className="text-emerald-800 flex items-center">
-                  <ArrowUp className="mr-2 h-5 w-5 text-emerald-600" /> 
+                <CardTitle className="flex items-center">
+                  <ArrowUp className="mr-2 h-5 w-5 text-foreground" /> 
                   High Productivity
                 </CardTitle>
-                <Badge className="bg-emerald-600">
-                  {formatDuration(data.highProductivityPeriods[0].duration)}
+                <Badge className="bg-primary text-primary-foreground">
+                  {formatDuration(highPeriodDuration)}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="pt-4">
               <div className="mb-4">
-                <div className="text-xs text-emerald-700 uppercase font-semibold mb-1">Time Period</div>
-                <div className="p-2 bg-emerald-50 rounded-md text-sm">
-                  {formatTime(data.highProductivityPeriods[0].startTime)} - {formatTime(data.highProductivityPeriods[0].endTime)}
+                <div className="text-xs text-muted-foreground uppercase font-semibold mb-1">TIME PERIOD</div>
+                <div className="p-2 bg-muted rounded-md text-sm">
+                  {highPeriod ? `${formatTime(highPeriod.startTime)} - ${formatTime(highPeriod.endTime)}` : "No data available"}
                 </div>
               </div>
               
               <div>
-                <div className="text-xs text-emerald-700 uppercase font-semibold mb-1">Contributing Factors</div>
-                <div className="flex flex-wrap gap-2">
-                  {data.highProductivityPeriods[0].contributingFactors.map((factor, index) => (
-                    <div key={index} className="flex items-center px-2 py-1 bg-emerald-100 text-emerald-800 rounded-md text-sm">
-                      <CheckCircle className="h-3 w-3 mr-1 text-emerald-600" />
-                      {factor}
-                    </div>
-                  ))}
-                </div>
+                <div className="text-xs text-muted-foreground uppercase font-semibold mb-1">CONTRIBUTING FACTORS</div>
+                {highPeriod && highPeriod.contributingFactors?.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {highPeriod.contributingFactors.map((factor, index) => (
+                      <div key={index} className="flex items-center px-2 py-1 bg-secondary text-secondary-foreground rounded-md text-sm">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        {factor}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-2 bg-muted rounded-md text-sm">No factors identified</div>
+                )}
               </div>
             </CardContent>
           </Card>
           
           {/* Low Productivity Period */}
-          <Card className="border-emerald-200 shadow-sm">
-            <CardHeader className="pb-2 border-b border-emerald-100">
+          <Card>
+            <CardHeader className="pb-2 border-b border-border">
               <div className="flex justify-between items-center">
-                <CardTitle className="text-emerald-800 flex items-center">
-                  <ArrowDown className="mr-2 h-5 w-5 text-emerald-500" /> 
+                <CardTitle className="flex items-center">
+                  <ArrowDown className="mr-2 h-5 w-5" /> 
                   Low Productivity
                 </CardTitle>
-                <Badge variant="outline" className="border-emerald-300 text-emerald-700">
-                  {formatDuration(data.lowProductivityPeriods[0].duration)}
+                <Badge variant="outline" className="border-border">
+                  {formatDuration(lowPeriodDuration)}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="pt-4">
               <div className="mb-4">
-                <div className="text-xs text-emerald-700 uppercase font-semibold mb-1">Time Period</div>
-                <div className="p-2 bg-emerald-50 rounded-md text-sm">
-                  {formatTime(data.lowProductivityPeriods[0].startTime)} - {formatTime(data.lowProductivityPeriods[0].endTime)}
+                <div className="text-xs text-muted-foreground uppercase font-semibold mb-1">TIME PERIOD</div>
+                <div className="p-2 bg-muted rounded-md text-sm">
+                  {lowPeriod ? `${formatTime(lowPeriod.startTime)} - ${formatTime(lowPeriod.endTime)}` : "No data available"}
                 </div>
               </div>
               
               <div>
-                <div className="text-xs text-emerald-700 uppercase font-semibold mb-1">Possible Cause</div>
-                <div className="flex items-center px-3 py-2 bg-emerald-100 text-emerald-800 rounded-md text-sm">
-                  <XCircle className="h-3 w-3 mr-2 text-emerald-500" />
-                  {data.lowProductivityPeriods[0].possibleCause}
-                </div>
+                <div className="text-xs text-muted-foreground uppercase font-semibold mb-1">POSSIBLE CAUSE</div>
+                {lowPeriod && lowPeriod.possibleCause ? (
+                  <div className="flex items-center px-3 py-2 bg-secondary text-secondary-foreground rounded-md text-sm">
+                    <XCircle className="h-3 w-3 mr-2" />
+                    {lowPeriod.possibleCause}
+                  </div>
+                ) : (
+                  <div className="p-2 bg-muted rounded-md text-sm">No cause identified</div>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
         
         {/* Longest Focus Session */}
-        <Card className="border-emerald-200 shadow-sm bg-gradient-to-r from-emerald-50 to-white">
+        <Card className="bg-gradient-to-r from-muted to-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <div className="bg-emerald-100 p-2 rounded-md mr-4">
-                  <Zap className="h-6 w-6 text-emerald-600" />
+                <div className="bg-secondary p-2 rounded-md mr-4">
+                  <Zap className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-emerald-800">Longest Focus Session</h3>
-                  <p className="text-sm text-emerald-600">{data.longestFocusDuration.description}</p>
+                  <h3 className="font-medium">Longest Focus Session</h3>
+                  <p className="text-sm text-muted-foreground">{longestFocus?.description || "No description available"}</p>
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-emerald-700">{formatDuration(data.longestFocusDuration.duration)}</div>
-                <p className="text-xs text-emerald-600">Context Group: {data.longestFocusDuration.contextGroupId}</p>
+                <div className="text-2xl font-bold">{formatDuration(longestFocusDuration)}</div>
+                <p className="text-xs text-muted-foreground">
+                  Context Group: {longestFocus?.contextGroupId || "N/A"}
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <CardFooter className="p-0 pt-2 text-xs text-right text-emerald-700">
-          Data captured on March 3, 2025 • Productive time: {data.productiveTimePercentage}% of session
+        <CardFooter className="p-0 pt-2 text-xs text-right text-muted-foreground">
+          Data captured on {new Date().toLocaleDateString()} • Productive time: {productivePercentage}% of session
         </CardFooter>
       </div>
     </div>

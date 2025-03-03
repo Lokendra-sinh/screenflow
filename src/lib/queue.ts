@@ -24,7 +24,6 @@ async function processItem(item: QueueItem) {
   const db = getDb();
   
   try {
-    console.log(`Processing item: sessionId=${item.sessionId}, rawDataId=${item.rawDataId}`);
     
     await db.update(sessions)
       .set({ status: 'processing' })
@@ -42,7 +41,6 @@ async function processItem(item: QueueItem) {
     let parsedData;
     try {
       parsedData = JSON.parse(rawDataRecord.data);
-      console.log("Successfully parsed data for session");
     } catch (error) {
       console.error("Error parsing data:", error);
       throw new Error("Failed to parse JSON data");
@@ -63,7 +61,6 @@ async function processItem(item: QueueItem) {
       .set({ status: 'complete' })
       .where(eq(sessions.id, item.sessionId));
       
-    console.log(`Processing complete for session: ${item.sessionId}`);
   } catch (error) {
     console.error(`Error processing item ${item.sessionId}:`, error);
     

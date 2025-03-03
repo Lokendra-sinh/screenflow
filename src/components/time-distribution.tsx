@@ -1,8 +1,9 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer, PieChart, Pie } from 'recharts';
 import { Clock, Monitor, Globe, Activity } from 'lucide-react';
+import { ChartContainer } from '@/components/ui/chart';
 
 const TimeDistribution = ({ timeData }) => {
   // If no data is provided, use sample data
@@ -53,26 +54,29 @@ const TimeDistribution = ({ timeData }) => {
     return `${minutes}m ${remainingSeconds}s`;
   };
 
-  // Colors for charts
+  // Midnight theme chart colors
   const chartColors = {
-    productive: "#10b981",
-    nonProductive: "#6ee7b7",
-    neutral: "#34d399"
+    chart1: "hsl(var(--chart-1))",
+    chart2: "hsl(var(--chart-2))",
+    chart3: "hsl(var(--chart-3))",
+    chart4: "hsl(var(--chart-4))",
+    chart5: "hsl(var(--chart-5))"
   };
 
   // Determine color based on activity type
-  const getActivityColor = (type) => {
-    if (type === "technical-documentation") return chartColors.productive;
-    if (type === "social-media") return chartColors.nonProductive;
-    return chartColors.neutral;
+  const getActivityColor = (type, index) => {
+    if (type === "technical-documentation") return chartColors.chart1;
+    if (type === "social-media") return chartColors.chart2;
+    return chartColors[`chart${(index % 5) + 1}`];
   };
 
   // Generate data for the pie charts
   const prepareDataForPieChart = (data, nameKey) => {
-    return data.map(item => ({
+    return data.map((item, index) => ({
       name: item[nameKey],
       value: item.percentage,
-      duration: formatDuration(item.totalDuration)
+      duration: formatDuration(item.totalDuration),
+      fill: chartColors[`chart${(index % 5) + 1}`]
     }));
   };
 
@@ -80,14 +84,29 @@ const TimeDistribution = ({ timeData }) => {
   const domainData = prepareDataForPieChart(data.byDomain, 'domain');
   const typeData = prepareDataForPieChart(data.byType, 'type');
 
-  // Custom tooltip for pie charts
+  // Create chart config for shadcn/ui chart container
+  const createChartConfig = (data, nameKey) => {
+    return data.reduce((config, item, index) => {
+      config[item[nameKey]] = {
+        label: item[nameKey],
+        color: chartColors[`chart${(index % 5) + 1}`]
+      };
+      return config;
+    }, {});
+  };
+
+  const appChartConfig = createChartConfig(data.byApp, 'app');
+  const domainChartConfig = createChartConfig(data.byDomain, 'domain');
+  const typeChartConfig = createChartConfig(data.byType, 'type');
+
+  // Custom tooltip for charts
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-2 border border-emerald-100 rounded-md shadow-sm">
-          <p className="font-medium text-emerald-800">{payload[0].name}</p>
-          <p className="text-emerald-600">{payload[0].payload.duration}</p>
-          <p className="text-emerald-700 font-bold">{payload[0].value}% of time</p>
+        <div className="p-2 bg-card border border-border rounded-md shadow-sm">
+          <p className="font-medium">{payload[0].name}</p>
+          <p className="text-muted-foreground">{payload[0].payload.duration}</p>
+          <p className="font-bold">{payload[0].value}% of time</p>
         </div>
       );
     }
@@ -102,20 +121,23 @@ const TimeDistribution = ({ timeData }) => {
           <div key={index} className="mb-6">
             <div className="flex justify-between mb-1">
               <div className="flex items-center">
-                <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: getActivityColor(item[colorKey]) }}></div>
-                <span className="font-medium text-emerald-800">{item[nameKey]}</span>
+                <div 
+                  className="w-3 h-3 rounded-full mr-2" 
+                  style={{ backgroundColor: getActivityColor(item[colorKey], index) }}
+                ></div>
+                <span className="font-medium">{item[nameKey]}</span>
               </div>
-              <span className="text-emerald-700 font-bold">{item.percentage}%</span>
+              <span className="font-bold">{item.percentage}%</span>
             </div>
-            <div className="relative h-6 bg-emerald-100 rounded-full overflow-hidden">
+            <div className="relative h-6 bg-muted rounded-full overflow-hidden">
               <div 
                 className="absolute top-0 left-0 h-full rounded-full" 
                 style={{ 
                   width: `${item.percentage}%`, 
-                  backgroundColor: getActivityColor(item[colorKey])
+                  backgroundColor: getActivityColor(item[colorKey], index)
                 }}
               ></div>
-              <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center text-xs font-medium text-emerald-800">
+              <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center text-xs font-medium text-foreground">
                 {formatDuration(item.totalDuration)}
               </div>
             </div>
@@ -126,34 +148,34 @@ const TimeDistribution = ({ timeData }) => {
   };
 
   return (
-    <div className="w-full bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 rounded-xl">
+    <div className="w-full p-6 rounded-lg">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-emerald-800 mb-2">How You Spent Your Time</h2>
-        <p className="text-emerald-600">Clear breakdown of your time across apps, websites, and activities</p>
+        <h2 className="text-2xl font-bold mb-2">How You Spent Your Time</h2>
+        <p className="text-muted-foreground">Clear breakdown of your time across apps, websites, and activities</p>
       </div>
 
       <Tabs defaultValue="visual" className="w-full">
-        <TabsList className="mb-6 w-full bg-emerald-100 p-1">
-          <TabsTrigger value="visual" className="flex-1 data-[state=active]:bg-white data-[state=active]:text-emerald-800">
+        <TabsList className="mb-6 w-full">
+          <TabsTrigger value="visual" className="flex-1">
             Visual View
           </TabsTrigger>
-          <TabsTrigger value="detailed" className="flex-1 data-[state=active]:bg-white data-[state=active]:text-emerald-800">
+          <TabsTrigger value="detailed" className="flex-1">
             Detailed View
           </TabsTrigger>
         </TabsList>
 
         {/* Simple Visual View - For quick understanding */}
         <TabsContent value="visual" className="space-y-6">
-          <Card className="border-emerald-200">
+          <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-emerald-800 flex items-center">
+              <CardTitle className="flex items-center">
                 <Activity className="mr-2 h-5 w-5" /> Activity Type
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center">
                 <div className="w-full">
-                  <div className="h-12 rounded-full bg-emerald-100 relative overflow-hidden">
+                  <div className="h-12 rounded-lg bg-muted relative overflow-hidden">
                     {data.byType.map((item, index, arr) => {
                       // Calculate width percentage
                       const width = item.percentage;
@@ -171,10 +193,10 @@ const TimeDistribution = ({ timeData }) => {
                           style={{ 
                             width: `${width}%`, 
                             left: `${leftPosition}%`,
-                            backgroundColor: getActivityColor(item.type)
+                            backgroundColor: chartColors[`chart${(index % 5) + 1}`]
                           }}
                         >
-                          <span className="text-white font-bold text-sm px-2 whitespace-nowrap">
+                          <span className="text-card font-bold text-sm px-2 whitespace-nowrap">
                             {item.percentage}%
                           </span>
                         </div>
@@ -188,29 +210,29 @@ const TimeDistribution = ({ timeData }) => {
                         <div className="flex items-center mb-1">
                           <div 
                             className="w-3 h-3 rounded-full mr-1"
-                            style={{ backgroundColor: getActivityColor(item.type) }}
+                            style={{ backgroundColor: chartColors[`chart${(index % 5) + 1}`] }}
                           ></div>
                           <span className="text-sm font-medium capitalize">
                             {item.type.replace(/-/g, ' ')}
                           </span>
                         </div>
-                        <span className="text-xs text-emerald-600">{formatDuration(item.totalDuration)}</span>
+                        <span className="text-xs text-muted-foreground">{formatDuration(item.totalDuration)}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
               
-              <div className="mt-8 grid grid-cols-2 gap-6">
+              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h3 className="text-lg font-medium text-emerald-800 flex items-center mb-4">
+                  <h3 className="text-lg font-medium flex items-center mb-4">
                     <Monitor className="mr-2 h-5 w-5" /> Applications
                   </h3>
                   <SimpleTimeBar data={data.byApp} nameKey="app" colorKey="app" />
                 </div>
                 
                 <div>
-                  <h3 className="text-lg font-medium text-emerald-800 flex items-center mb-4">
+                  <h3 className="text-lg font-medium flex items-center mb-4">
                     <Globe className="mr-2 h-5 w-5" /> Websites
                   </h3>
                   <SimpleTimeBar data={data.byDomain} nameKey="domain" colorKey="domain" />
@@ -220,28 +242,28 @@ const TimeDistribution = ({ timeData }) => {
           </Card>
           
           {/* Time Comparison Card */}
-          <Card className="border-emerald-200">
+          <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-emerald-800 flex items-center">
+              <CardTitle className="flex items-center">
                 <Clock className="mr-2 h-5 w-5" /> Time Comparison
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {data.byApp.map((item, index) => (
-                  <div key={index} className="bg-white p-4 rounded-lg border border-emerald-100">
-                    <h4 className="font-medium text-emerald-700 mb-2">{item.app}</h4>
+                  <div key={index} className="p-4 rounded-lg border">
+                    <h4 className="font-medium mb-2">{item.app}</h4>
                     <div className="flex items-end justify-between">
-                      <div className="text-3xl font-bold text-emerald-800">{item.percentage}%</div>
-                      <div className="text-sm text-emerald-600">{formatDuration(item.totalDuration)}</div>
+                      <div className="text-3xl font-bold">{item.percentage}%</div>
+                      <div className="text-sm text-muted-foreground">{formatDuration(item.totalDuration)}</div>
                     </div>
                     
-                    <div className="mt-2 h-2 bg-emerald-100 rounded-full overflow-hidden">
+                    <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
                       <div 
                         className="h-full rounded-full" 
                         style={{ 
                           width: `${item.percentage}%`, 
-                          backgroundColor: item.app === "Visual Studio Code" ? chartColors.productive : chartColors.nonProductive 
+                          backgroundColor: chartColors[`chart${(index % 5) + 1}`]
                         }}
                       ></div>
                     </div>
@@ -249,19 +271,19 @@ const TimeDistribution = ({ timeData }) => {
                 ))}
                 
                 {data.byDomain.map((item, index) => (
-                  <div key={index} className="bg-white p-4 rounded-lg border border-emerald-100">
-                    <h4 className="font-medium text-emerald-700 mb-2">{item.domain}</h4>
+                  <div key={index} className="p-4 rounded-lg border">
+                    <h4 className="font-medium mb-2">{item.domain}</h4>
                     <div className="flex items-end justify-between">
-                      <div className="text-3xl font-bold text-emerald-800">{item.percentage}%</div>
-                      <div className="text-sm text-emerald-600">{formatDuration(item.totalDuration)}</div>
+                      <div className="text-3xl font-bold">{item.percentage}%</div>
+                      <div className="text-sm text-muted-foreground">{formatDuration(item.totalDuration)}</div>
                     </div>
                     
-                    <div className="mt-2 h-2 bg-emerald-100 rounded-full overflow-hidden">
+                    <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
                       <div 
                         className="h-full rounded-full" 
                         style={{ 
                           width: `${item.percentage}%`, 
-                          backgroundColor: item.domain === "localhost:3000" ? chartColors.productive : chartColors.nonProductive 
+                          backgroundColor: chartColors[`chart${(index % 5) + 1}`]
                         }}
                       ></div>
                     </div>
@@ -276,37 +298,39 @@ const TimeDistribution = ({ timeData }) => {
         <TabsContent value="detailed" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* By Applications */}
-            <Card className="border-emerald-200">
+            <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-emerald-800 flex items-center">
+                <CardTitle className="flex items-center">
                   <Monitor className="mr-2 h-5 w-5" /> Applications
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={appData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {appData.map((entry, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={entry.name === "Visual Studio Code" ? chartColors.productive : chartColors.nonProductive} 
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <ChartContainer config={appChartConfig}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={appData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          labelLine={false}
+                        >
+                          {appData.map((entry, index) => (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={entry.fill} 
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
                 </div>
                 
                 <div className="mt-4">
@@ -315,9 +339,7 @@ const TimeDistribution = ({ timeData }) => {
                       <div className="flex items-center">
                         <div 
                           className="w-3 h-3 rounded-full mr-2"
-                          style={{ 
-                            backgroundColor: item.app === "Visual Studio Code" ? chartColors.productive : chartColors.nonProductive 
-                          }}
+                          style={{ backgroundColor: chartColors[`chart${(index % 5) + 1}`] }}
                         ></div>
                         <span className="text-sm">{item.app}</span>
                       </div>
@@ -329,37 +351,39 @@ const TimeDistribution = ({ timeData }) => {
             </Card>
 
             {/* By Domains/Websites */}
-            <Card className="border-emerald-200">
+            <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-emerald-800 flex items-center">
+                <CardTitle className="flex items-center">
                   <Globe className="mr-2 h-5 w-5" /> Websites
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={domainData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {domainData.map((entry, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={entry.name === "localhost:3000" ? chartColors.productive : chartColors.nonProductive} 
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <ChartContainer config={domainChartConfig}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={domainData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          labelLine={false}
+                        >
+                          {domainData.map((entry, index) => (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={entry.fill} 
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
                 </div>
                 
                 <div className="mt-4">
@@ -368,9 +392,7 @@ const TimeDistribution = ({ timeData }) => {
                       <div className="flex items-center">
                         <div 
                           className="w-3 h-3 rounded-full mr-2"
-                          style={{ 
-                            backgroundColor: item.domain === "localhost:3000" ? chartColors.productive : chartColors.nonProductive 
-                          }}
+                          style={{ backgroundColor: chartColors[`chart${(index % 5) + 1}`] }}
                         ></div>
                         <span className="text-sm">{item.domain}</span>
                       </div>
@@ -382,37 +404,39 @@ const TimeDistribution = ({ timeData }) => {
             </Card>
 
             {/* By Activity Type */}
-            <Card className="border-emerald-200">
+            <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-emerald-800 flex items-center">
+                <CardTitle className="flex items-center">
                   <Activity className="mr-2 h-5 w-5" /> Activity Types
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={typeData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                        label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {typeData.map((entry, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={getActivityColor(data.byType[index].type)} 
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <ChartContainer config={typeChartConfig}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={typeData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                          label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                          labelLine={false}
+                        >
+                          {typeData.map((entry, index) => (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={entry.fill} 
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
                 </div>
                 
                 <div className="mt-4">
@@ -421,7 +445,7 @@ const TimeDistribution = ({ timeData }) => {
                       <div className="flex items-center">
                         <div 
                           className="w-3 h-3 rounded-full mr-2"
-                          style={{ backgroundColor: getActivityColor(item.type) }}
+                          style={{ backgroundColor: chartColors[`chart${(index % 5) + 1}`] }}
                         ></div>
                         <span className="text-sm capitalize">{item.type.replace(/-/g, ' ')}</span>
                       </div>
@@ -434,56 +458,73 @@ const TimeDistribution = ({ timeData }) => {
           </div>
 
           {/* Bar Chart Comparison */}
-          <Card className="border-emerald-200">
+          <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-emerald-800">Time Comparison</CardTitle>
+              <CardTitle>Time Comparison</CardTitle>
+              <CardDescription>Duration across different categories</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={[
-                      ...data.byApp.map(item => ({
+                      ...data.byApp.map((item, index) => ({
                         name: item.app,
                         value: item.totalDuration / 1000 / 60, // Convert to minutes
                         category: 'Applications',
-                        percentage: item.percentage
+                        percentage: item.percentage,
+                        fill: chartColors[`chart${(index % 5) + 1}`]
                       })),
-                      ...data.byDomain.map(item => ({
+                      ...data.byDomain.map((item, index) => ({
                         name: item.domain,
                         value: item.totalDuration / 1000 / 60, // Convert to minutes
                         category: 'Websites',
-                        percentage: item.percentage
+                        percentage: item.percentage,
+                        fill: chartColors[`chart${((index + 2) % 5) + 1}`]
                       })),
-                      ...data.byType.map(item => ({
+                      ...data.byType.map((item, index) => ({
                         name: item.type.replace(/-/g, ' '),
                         value: item.totalDuration / 1000 / 60, // Convert to minutes
                         category: 'Activity Types',
-                        percentage: item.percentage
+                        percentage: item.percentage,
+                        fill: chartColors[`chart${((index + 4) % 5) + 1}`]
                       }))
                     ]}
                     layout="vertical"
                     margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
                   >
-                    <XAxis type="number" />
-                    <YAxis dataKey="name" type="category" scale="band" />
+                    <XAxis 
+                      type="number"
+                      axisLine={false}
+                      tickLine={false}
+                      stroke="hsl(var(--muted-foreground))"
+                    />
+                    <YAxis 
+                      dataKey="name" 
+                      type="category" 
+                      scale="band"
+                      axisLine={false}
+                      tickLine={false}
+                      stroke="hsl(var(--muted-foreground))"
+                    />
                     <Tooltip 
                       formatter={(value, name, props) => [`${value} min (${props.payload.percentage}%)`, 'Time Spent']}
                       labelFormatter={(value) => `${value}`}
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        borderColor: 'hsl(var(--border))',
+                        borderRadius: 'var(--radius)',
+                        color: 'hsl(var(--card-foreground))'
+                      }}
                     />
-                    <Bar dataKey="value" name="Minutes">
+                    <Bar dataKey="value" name="Minutes" radius={[4, 4, 0, 0]}>
                       {data.byApp.concat(data.byDomain).concat(data.byType).map((entry, index) => {
-                        let color;
-                        if (index < data.byApp.length) {
-                          color = entry.app === "Visual Studio Code" ? chartColors.productive : chartColors.nonProductive;
-                        } else if (index < data.byApp.length + data.byDomain.length) {
-                          const domainItem = data.byDomain[index - data.byApp.length];
-                          color = domainItem.domain === "localhost:3000" ? chartColors.productive : chartColors.nonProductive;
-                        } else {
-                          const typeItem = data.byType[index - data.byApp.length - data.byDomain.length];
-                          color = getActivityColor(typeItem.type);
-                        }
-                        return <Cell key={`cell-${index}`} fill={color} />;
+                        return (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={chartColors[`chart${(index % 5) + 1}`]} 
+                          />
+                        );
                       })}
                     </Bar>
                   </BarChart>

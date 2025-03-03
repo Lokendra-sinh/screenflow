@@ -1,47 +1,66 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "./ui/button";
 import { useSession } from "@/providers/SessionProvider";
 import { PlayCircle, StopCircle, RefreshCw } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 
 export function ScreenpipeSessionControls() {
-    const { sessionId, setSessionId } = useSession()
-    const [isLoading, setIsLoading] = useState<boolean>(false)
+    const { sessionId, setSessionId } = useSession();
 
-    const handleToggleSession = async () => {
-        setIsLoading(true);
-
-        try {
-            if (!sessionId) {
-                // Start session
-                const response = await fetch('/api/session/start', { method: 'POST' });
-                if (response.ok) {
-                    const body = await response.json()
-                    if(body.data && body.data.sessionId){
-                        setSessionId(body.data.sessionId)
-                    }
-                }
-            } else {
-                // Stop session
-                const response = await fetch('/api/session/stop', { 
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ sessionId }) 
-                });
-                
-                if (response.ok) {
-                    setSessionId(null);
-                }
+    // Mutation for starting a session
+    const startSessionMutation = useMutation({
+        mutationFn: async () => {
+            const response = await fetch('/api/session/start', { method: 'POST' });
+            if (!response.ok) {
+                throw new Error('Failed to start session');
             }
-        } catch (error) {
-            console.error(`Failed to ${sessionId ? 'stop' : 'start'} Screenpipe:`, error);
-        } finally {
-            setIsLoading(false);
+            return response.json();
+        },
+        onSuccess: (data) => {
+            if (data.data && data.data.sessionId) {
+                setSessionId(data.data.sessionId);
+            }
+        },
+        onError: (error) => {
+            console.error('Failed to start Screenpipe:', error);
+        }
+    });
+
+
+    const stopSessionMutation = useMutation({
+        mutationFn: async () => {
+            const response = await fetch('/api/session/stop', { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ sessionId }) 
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to stop session');
+            }
+            return response.json();
+        },
+        onSuccess: () => {
+            setSessionId(null);
+        },
+        onError: (error) => {
+            console.error('Failed to stop Screenpipe:', error);
+        }
+    });
+
+    const handleToggleSession = () => {
+        if (!sessionId) {
+            startSessionMutation.mutate();
+        } else {
+            stopSessionMutation.mutate();
         }
     };
+
+
+    const isLoading = startSessionMutation.isPending || stopSessionMutation.isPending;
 
     return (
         <div className="w-full flex items-center justify-center">

@@ -16,8 +16,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const pulseData = await getDailyPulseData(sessionId);
-
-    console.log("Pulse DATA", pulseData)
     
     return NextResponse.json({
       success: true,

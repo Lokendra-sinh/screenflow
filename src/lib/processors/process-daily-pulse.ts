@@ -7,7 +7,6 @@ import { callClaudeWithRetry } from "../ai/claude";
 
 
 export async function processDailyPulse(sessionId: string, rawDataId: string) {
-    console.log(`Processing daily pulse for session ${sessionId}, raw data ${rawDataId}`);
     
     const db = getDb();
   
@@ -51,8 +50,6 @@ export async function processDailyPulse(sessionId: string, rawDataId: string) {
       // Process with Claude
       const systemPrompt = dailyPulsePrompt();
       const processedSummary = await callClaudeWithRetry(systemPrompt, contentForProcessing);
-
-      console.log("PROCESSED DAILY PULSE DATA IS:", processedSummary)
   
       if (!processedSummary) {
         throw new Error('Failed to process data with Claude');
@@ -62,7 +59,7 @@ export async function processDailyPulse(sessionId: string, rawDataId: string) {
       await db.update(dailyPulse)
         .set({
           status: 'complete',
-          data: JSON.stringify(processedSummary),
+          data: JSON.stringify(processedSummary.content[0]?.text),
           completedAt: new Date().toISOString()
         })
         .where(eq(dailyPulse.id, pulseId));
@@ -109,90 +106,90 @@ export async function getProcessedDataBySession(sessionId: string) {
 }
 
 
-function createEmptyDailyPulseResponse(screenData: any) {
-  let startTime = new Date().toISOString();
-  let endTime = new Date().toISOString();
-  let frameCount = 0;
+// function createEmptyDailyPulseResponse(screenData: any) {
+//   let startTime = new Date().toISOString();
+//   let endTime = new Date().toISOString();
+//   let frameCount = 0;
   
-  try {
-    if (Array.isArray(screenData)) {
+//   try {
+//     if (Array.isArray(screenData)) {
 
-      if (screenData.length > 0) {
-        const timestamps = screenData
-          .filter(r => r.content?.timestamp)
-          .map(r => r.content.timestamp);
+//       if (screenData.length > 0) {
+//         const timestamps = screenData
+//           .filter(r => r.content?.timestamp)
+//           .map(r => r.content.timestamp);
         
-        if (timestamps.length > 0) {
-          startTime = timestamps.sort()[0];
-          endTime = timestamps.sort().pop() || endTime;
-          frameCount = screenData.length;
-        }
-      }
-    }
-  } catch (e) {
-    console.error("Error extracting basic info for empty response:", e);
-  }
+//         if (timestamps.length > 0) {
+//           startTime = timestamps.sort()[0];
+//           endTime = timestamps.sort().pop() || endTime;
+//           frameCount = screenData.length;
+//         }
+//       }
+//     }
+//   } catch (e) {
+//     console.error("Error extracting basic info for empty response:", e);
+//   }
   
-  // Generate a session ID based on the timestamp
-  const sessionId = `session-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+//   // Generate a session ID based on the timestamp
+//   const sessionId = `session-${new Date().toISOString().replace(/[:.]/g, '-')}`;
   
-  return {
-    session: {
-      id: sessionId,
-      startTime,
-      endTime,
-      duration: calculateDuration(startTime, endTime),
-      frameCount
-    },
-    contextGroups: [],
-    contextSwitches: [],
-    flowStates: [],
-    insights: {
-      topActivities: [],
-      interestCategories: [],
-      behavioralPatterns: [],
-      knowledgeAreas: []
-    },
-    timeline: {
-      timePoints: [],
-      intensityCurve: []
-    }
-  };
-}
+//   return {
+//     session: {
+//       id: sessionId,
+//       startTime,
+//       endTime,
+//       duration: calculateDuration(startTime, endTime),
+//       frameCount
+//     },
+//     contextGroups: [],
+//     contextSwitches: [],
+//     flowStates: [],
+//     insights: {
+//       topActivities: [],
+//       interestCategories: [],
+//       behavioralPatterns: [],
+//       knowledgeAreas: []
+//     },
+//     timeline: {
+//       timePoints: [],
+//       intensityCurve: []
+//     }
+//   };
+// }
 
 
-function calculateDuration(start: string, end: string): number {
-  return Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000);
-}
+// function calculateDuration(start: string, end: string): number {
+//   return Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000);
+// }
 
 
-function validateDailyPulseResponse(response: any) {
+// function validateDailyPulseResponse(response: any) {
 
-  const requiredProps = ['session', 'contextGroups', 'contextSwitches', 'flowStates', 'insights', 'timeline'];
+//   const requiredProps = ['session', 'contextGroups', 'contextSwitches', 'flowStates', 'insights', 'timeline'];
   
-  requiredProps.forEach(prop => {
-    if (!response[prop]) {
-      response[prop] = prop === 'session' 
-        ? { id: `session-${Date.now()}`, startTime: new Date().toISOString(), endTime: new Date().toISOString(), duration: 0, frameCount: 0 }
-        : prop === 'insights'
-          ? { topActivities: [], interestCategories: [], behavioralPatterns: [], knowledgeAreas: [] }
-          : prop === 'timeline'
-            ? { timePoints: [], intensityCurve: [] }
-            : [];
-    }
-  });
+//   requiredProps.forEach(prop => {
+//     if (!response[prop]) {
+//       response[prop] = prop === 'session' 
+//         ? { id: `session-${Date.now()}`, startTime: new Date().toISOString(), endTime: new Date().toISOString(), duration: 0, frameCount: 0 }
+//         : prop === 'insights'
+//           ? { topActivities: [], interestCategories: [], behavioralPatterns: [], knowledgeAreas: [] }
+//           : prop === 'timeline'
+//             ? { timePoints: [], intensityCurve: [] }
+//             : [];
+//     }
+//   });
   
 
-  if (Array.isArray(response.contextGroups)) {
-    response.contextGroups.forEach((group: any, index: number) => {
-      if (!group.id) {
-        group.id = `cg-${index + 1}`;
-      }
-    });
-  }
+//   if (Array.isArray(response.contextGroups)) {
+//     response.contextGroups.forEach((group: any, index: number) => {
+//       if (!group.id) {
+//         group.id = `cg-${index + 1}`;
+//       }
+//     });
+//   }
   
-  return response;
-}
+//   return response;
+// }
 
 export async function getDailyPulseData(sessionId: string) {
     const db = getDb();
@@ -210,7 +207,7 @@ export async function getDailyPulseData(sessionId: string) {
       if (pulseData.status === 'complete') {
         return { 
           status: 'complete', 
-          data: JSON.parse(pulseData.data || '{}') 
+          data: pulseData.data
         };
       }
   

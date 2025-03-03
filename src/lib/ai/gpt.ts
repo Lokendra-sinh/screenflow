@@ -13,14 +13,13 @@ export type GPTOptions = {
     inputData: any,
     options: GPTOptions = {}
   ): Promise<any> {
-    console.log("Calling OpenAI GPT API");
-  
-    // Normalize input data to string
+
+
     const normalizedInput = typeof inputData === 'string' 
       ? inputData 
       : JSON.stringify(inputData);
   
-    // Default options
+
     const {
       model = "gpt-4-turbo",
       temperature = 0.2,
@@ -64,7 +63,6 @@ export type GPTOptions = {
   
       const responseData = await response.json();
 
-      console.log("RESPONSE from GPT is:", responseData)
       
       if (!responseData.choices?.[0]?.message?.content || 
           responseData.choices[0].message.content.trim() === '') {

@@ -29,7 +29,6 @@ export default function SessionDetailPage() {
         throw new Error("Failed to fetch session data");
       }
       const data = await response.json();
-      console.log("Data from BE is", data);
       setSessionData(data);
       setError(null);
     } catch (err) {
@@ -81,29 +80,28 @@ export default function SessionDetailPage() {
 
   const { jobData } = sessionData;
   
-  // Transform job postings to have consistent structure
+
   const jobPostings = (jobData?.jobPostings || []).map((job: any) => {
-    // Extract job details from the expanded backend data structure
     const title = job.basicInfo?.title || job.role || "Unknown Role";
     const company = job.sourceInfo?.company?.name || job.company || "Unknown Company";
     
-    // Format work type and location together
+
     const workplaceType = job.basicInfo?.workplaceType || "Unknown";
     const location = job.basicInfo?.location || job.location || "-";
     const formattedLocation = workplaceType?.toLowerCase().includes("remote") 
       ? `Remote (${location})` 
       : location;
     
-    // Format salary properly
+
     const salary = job.basicInfo?.compensation?.salary || job.salaryInfo || "-";
     
-    // Get experience requirement
+
     const experience = job.basicInfo?.experienceRequired || job.experienceRequired || "-";
     
-    // Get posting date
+
     const postedDate = job.basicInfo?.postedDate || "-";
     
-    // Determine workplace type for badge
+
     let workTypeDisplay = "Unknown";
     let workTypeBadgeVariant: "default" | "outline" | "secondary" | "destructive" = "outline";
     
@@ -120,8 +118,8 @@ export default function SessionDetailPage() {
       }
     }
     
-    // Get apply link if available
-    const applyLink = job.applicationInfo?.applyLink || job.sourceInfo?.url || null;
+    const applyLink = job.sourceInfo?.url ? `https://${job.sourceInfo.url}` : null
+
     
     return {
       ...job,

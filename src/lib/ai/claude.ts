@@ -36,12 +36,6 @@ export async function callClaudeWithRetry(systemPrompt: string, data: any) {
 
       retryCount++;
 
-
-      console.log(
-        `Claude API overloaded. Retrying (${retryCount}/${RETRY_CONFIG.maxRetries}) after ${delay}ms...`
-      );
-
-
       await new Promise((resolve) => setTimeout(resolve, delay));
 
 
@@ -57,7 +51,6 @@ export async function callClaude(
   systemPrompt: string,
   inputData: any
 ): Promise<any> {
-  console.log("Calling Claude API");
 
   const normalizedInput =
     typeof inputData === "string" ? inputData : JSON.stringify(inputData);
