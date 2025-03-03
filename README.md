@@ -55,7 +55,7 @@ Screenflow is built on a modern & highly popular tech stack:
 1. Clone the repository:
 ```bash
 git clone https://github.com/Lokendra-sinh/screenflow.git
-cd screenpipe
+cd screenflow
 ```
 
 2. Install dependencies:
