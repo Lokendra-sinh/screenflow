@@ -4,8 +4,8 @@ import crypto from "crypto";
 import { getDb } from "@/lib/db";
 import { sessions } from "@/lib/schema";
 
-export async function POST() {
-  const originalPromise = new Promise(async (resolve) => {
+export async function POST(): Promise<Response> {
+  const originalPromise = new Promise<Response>(async (resolve) => {
     try {
       const healthResponse = await fetch("http://localhost:3030/health");
       if (healthResponse.ok) {

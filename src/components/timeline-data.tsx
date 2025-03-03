@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -22,7 +22,7 @@ import {
   ResponsiveContainer,
   Cell
 } from 'recharts';
-import { Clock, Activity, Zap, BarChart2, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Clock, Activity, Zap, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 const formatTime = (timestamp) => {
   if (!timestamp) return '';
@@ -416,7 +416,6 @@ const TimelineData = ({ timelineData }) => {
                             label={{ fill: '#666', position: 'insideStart' }}
                             background
                             dataKey="intensity"
-                            nameKey="timeSlot"
                           >
                             {heatmapData.map((entry, index) => (
                               <Cell 

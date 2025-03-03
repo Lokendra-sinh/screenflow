@@ -8,7 +8,7 @@ import crypto from "crypto";
 import { processDailyPulse } from "@/lib/processors/process-daily-pulse";
 import { processQueue } from "@/lib/queue";
 
-export async function POST(req: Request) {
+export async function POST(req: Request): Promise<Response> {
   try {
     const { sessionId } = await req.json();
     if (!sessionId) {
