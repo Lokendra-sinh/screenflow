@@ -118,7 +118,7 @@ export default function SessionDetailPage() {
       }
     }
     
-    const applyLink = job.sourceInfo?.url ? `https://${job.sourceInfo.url}` : null
+    const applyLink = job.sourceInfo?.url ? job.sourceInfo.url : null
 
     
     return {
