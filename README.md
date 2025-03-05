@@ -47,7 +47,7 @@ Screenflow is built on a modern & highly popular tech stack:
 ### Prerequisites
 
 - Node.js (v18 or higher)
-- npm or yarn
+- bun
 - API keys for Claude and DeepSeek (for AI processing capabilities)
 
 ### Installation
