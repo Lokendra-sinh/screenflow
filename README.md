@@ -49,6 +49,7 @@ Screenflow is built on a modern & highly popular tech stack:
 - Node.js (v18 or higher)
 - bun
 - API keys for Claude and DeepSeek (for AI processing capabilities)
+- screenpipe (https://docs.screenpi.pe/docs/getting-started)
 
 ### Installation
 
