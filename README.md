@@ -61,8 +61,6 @@ cd screenflow
 2. Install dependencies:
 ```bash
 bun install
-# or
-npm install
 ```
 
 3. Set up environment variables:
@@ -81,8 +79,6 @@ docker-compose up -d
 5. Start the development server:
 ```bash
 bun dev
-# or
-yarn dev
 ```
 
 6. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
