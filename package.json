@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --no-lint",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate": "drizzle-kit generate --dialect=postgresql --out ./drizzle --schema=./src/lib/schema.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -43,7 +44,6 @@
     "framer-motion": "^11.14.4",
     "install": "^0.13.0",
     "js-levenshtein": "^1.1.6",
-    "localforage": "^1.10.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.477.0",
     "magic-ui": "^0.1.0",
@@ -51,6 +51,7 @@
     "npm": "^10.9.2",
     "ollama-ai-provider": "^1.1.0",
     "openai": "^4.76.3",
+    "postgres": "^3.4.5",
     "react": "^19.0.0",
     "react-day-picker": "8.10.1",
     "react-dom": "^19.0.0",
@@ -70,6 +71,7 @@
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.20",
     "bun-types": "latest",
+    "drizzle-kit": "^0.30.5",
     "eslint": "^9",
     "eslint-config-next": "15.1.0",
     "postcss": "^8.4.49",

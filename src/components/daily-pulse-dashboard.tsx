@@ -97,7 +97,7 @@ const DailyPulseDashboard = ({ pulseData }: DailyPulseDashboardProps) => {
 
 const Header = () => (
   <div className="mb-8">
-    <h1 className="text-3xl font-bold text-foreground">Digital Daily Pulse</h1>
+    <h1 className="text-3xl font-bold text-foreground">Session analytics</h1>
     <p className="text-muted-foreground mt-2">
       Your digital activity patterns visualized
     </p>

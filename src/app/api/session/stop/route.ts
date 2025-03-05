@@ -18,12 +18,13 @@ export async function POST(req: Request): Promise<Response> {
       }, { status: 400 });
     }
 
-    const db = getDb();
+    const db = await getDb();
 
+    // PostgreSQL change: Use first() instead of get()
     const existingSession = await db.select()
       .from(sessions)
       .where(eq(sessions.id, sessionId))
-      .get();
+      .then(rows => rows[0]);
       
     if (!existingSession) {
       return NextResponse.json({ 
@@ -41,23 +42,28 @@ export async function POST(req: Request): Promise<Response> {
     console.log("PIPE RESULTS are:", results!.data)
 
     if (results && results.data.length > 0) {
-      const now = new Date().toISOString();
+      const now = new Date();
       let rawDataId = "";
 
+      // PostgreSQL transaction handling
       await db.transaction(async (tx) => {
-        const rawDataResult = await tx.insert(rawData).values({
-          id: crypto.randomUUID(),
-          sessionId: sessionId,
-          data: JSON.stringify(results),
-          capturedAt: now
-        }).returning({ id: rawData.id });
+        // Insert raw data and get the ID
+        const rawDataResult = await tx.insert(rawData)
+          .values({
+            id: crypto.randomUUID(),
+            sessionId: sessionId,
+            data: JSON.stringify(results),
+            capturedAt: now
+          })
+          .returning({ id: rawData.id });
 
         rawDataId = rawDataResult[0].id;
 
+        // Update session status
         await tx.update(sessions)
           .set({
             status: 'processing', 
-            endTime: now,
+            endTime: now.toISOString(),
           })
           .where(eq(sessions.id, sessionId));
       });

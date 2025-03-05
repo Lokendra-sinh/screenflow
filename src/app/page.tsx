@@ -63,9 +63,9 @@ export default function Page() {
           <TabsContent value="capture" className="mt-6">
             <div className="flex flex-col items-center justify-center gap-6 py-10 border rounded-lg bg-muted/30">
               <div className="text-center max-w-md">
-                <h3 className="text-lg font-medium mb-2">Start Tracking Jobs</h3>
+                <h3 className="text-lg font-medium mb-2">Start Tracking</h3>
                 <p className="text-muted-foreground mb-4">
-                  Screenpipe will capture your browsing session and identify job postings automatically.
+                  Screenflow will capture your session and identify job postings automatically along with session analytics
                 </p>
               </div>
               <ScreenpipeSessionControls />

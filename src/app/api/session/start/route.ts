@@ -52,16 +52,16 @@ export async function POST(): Promise<Response> {
         if (healthResponse.ok) {
           const healthData = await healthResponse.json();
           const sessionId = crypto.randomUUID();
-          const now = new Date().toISOString();
+          const now = new Date();
 
           // INSERT THE SESSION INTO THE DATABASE
-          const db = getDb();
-          await db.insert(sessions).values({
-            id: sessionId,
-            startTime: now,
-            status: "recording",
-            createdAt: now,
-          });
+          const db = await getDb();
+            await db.insert(sessions).values({
+              id: sessionId,
+              startTime: now.toISOString(),
+              status: "recording",
+              createdAt: now,
+            });
 
           return resolve(
             NextResponse.json({

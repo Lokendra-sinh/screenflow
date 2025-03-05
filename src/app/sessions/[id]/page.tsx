@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,37 +11,27 @@ import { ArrowLeft, RefreshCw, Briefcase, MapPin, Calendar, ExternalLink, FileTe
 import Link from "next/link";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import DailyPulsePage from "@/components/daily-pulse";
+import { useQuery } from "@tanstack/react-query";
 
 export default function SessionDetailPage() {
   const params = useParams();
   const sessionId = params.id as string;
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [sessionData, setSessionData] = useState<any>(null);
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("jobs");
 
-  const fetchSessionData = async () => {
-    setLoading(true);
-    try {
+  const { data: sessionData, isLoading: loading, error: queryError, refetch } = useQuery({
+    queryKey: ['sessionData', sessionId],
+    queryFn: async () => {
+      console.log("session", sessionId);
       const response = await fetch(`/api/sessions/${sessionId}`);
       if (!response.ok) {
         throw new Error("Failed to fetch session data");
       }
-      const data = await response.json();
-      setSessionData(data);
-      setError(null);
-    } catch (err) {
-      setError("Error loading session data. Please try again.");
-      console.error(err);
-    } finally {
-      setLoading(false);
+      return response.json();
     }
-  };
+  });
 
-  useEffect(() => {
-    fetchSessionData();
-  }, [sessionId]);
+  const error = queryError ? "Error loading session data. Please try again." : null;
 
   if (loading) {
     return (
@@ -68,7 +58,7 @@ export default function SessionDetailPage() {
             <CardDescription>{error || "Failed to load session data"}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={fetchSessionData}>Try Again</Button>
+            <Button onClick={() => refetch()}>Try Again</Button>
             <Link href="/" className="ml-4">
               <Button variant="outline">Go Back</Button>
             </Link>
@@ -160,7 +150,7 @@ export default function SessionDetailPage() {
           </TabsTrigger>
           <TabsTrigger value="pulse" className="flex items-center gap-2">
             <Activity className="h-4 w-4" />
-            Daily Pulse
+            Session Analytics
           </TabsTrigger>
         </TabsList>
 

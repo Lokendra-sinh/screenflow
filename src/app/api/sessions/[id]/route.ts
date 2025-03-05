@@ -1,30 +1,27 @@
-import {  NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { sessions, processedData } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 
-
-export async function GET(req: Request, { params } : { params: Promise<{id: string}>}) {
+export async function GET( request: Request, { params } : { params: Promise<{id: string}>}) {
   try {
-    const sessionId  = (await params).id
+    const sessionId = (await params).id
     
     if (!sessionId) {
       return NextResponse.json({ error: "Session ID is required" }, { status: 400 });
     }
     
-    const db = getDb();
-    
-    // Get session details
+    const db = await getDb();
+
     const session = await db.select()
       .from(sessions)
       .where(eq(sessions.id, sessionId))
-      .get();
+      .then(rows => rows[0]);
     
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
     
-    // If session is still in progress, return just the status
     if (!['complete', 'error'].includes(session.status)) {
       return NextResponse.json({
         session: {
@@ -38,11 +35,11 @@ export async function GET(req: Request, { params } : { params: Promise<{id: stri
       });
     }
     
-    // For completed sessions, get the processed data
+    // For completed sessions, get the processed data - PostgreSQL change: use first() instead of get()
     const processedResult = await db.select()
       .from(processedData)
       .where(eq(processedData.sessionId, sessionId))
-      .get();
+      .then(rows => rows[0]);
     
     if (!processedResult) {
       return NextResponse.json({ 

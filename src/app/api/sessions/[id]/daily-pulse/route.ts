@@ -1,5 +1,3 @@
-// app/api/daily-pulse/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { getDailyPulseData } from "@/lib/processors/process-daily-pulse";
 
@@ -16,6 +14,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const pulseData = await getDailyPulseData(sessionId);
+
+    console.log("Pulse DATA is", pulseData)
     
     return NextResponse.json({
       success: true,

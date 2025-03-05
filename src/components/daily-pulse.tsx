@@ -13,13 +13,13 @@ const fetchDailyPulseData = async (sessionId) => {
     throw new Error(data.error || 'Failed to fetch daily pulse data');
   }
   
-  // If data.data is a string that contains JSON, parse it
+
   if (typeof data.data === 'string') {
     try {
       return JSON.parse(data.data);
     } catch (err) {
       console.error("Error parsing response data:", err);
-      return data.data; // Return as is if parsing fails
+      return data.data; 
     }
   }
   

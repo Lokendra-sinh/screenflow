@@ -1,19 +1,17 @@
 import { getDb } from "../db";
 import { rawData, dailyPulse, processedData } from "../schema";
-import { and, eq, } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import crypto from "crypto";
 import { dailyPulsePrompt } from "../prompts/daily-pulse-prompt";
 import { callClaudeWithRetry } from "../ai/claude";
 
-
 export async function processDailyPulse(sessionId: string, rawDataId: string) {
-    
-    const db = getDb();
+    const db = await getDb();
   
     try {
       // First, create a pending record in dailyPulse
       const pulseId = crypto.randomUUID();
-      const now = new Date().toISOString();
+      const now = new Date();
       
       await db.insert(dailyPulse)
         .values({
@@ -26,11 +24,11 @@ export async function processDailyPulse(sessionId: string, rawDataId: string) {
           error: null
         });
   
-      // Fetch the raw data
+      // Fetch the raw data - PostgreSQL change: use first() instead of get()
       const rawDataRecord = await db.select()
         .from(rawData)
         .where(eq(rawData.id, rawDataId))
-        .get();
+        .then(rows => rows[0]);
   
       if (!rawDataRecord) {
         throw new Error(`Raw data not found for ID: ${rawDataId}`);
@@ -62,7 +60,7 @@ export async function processDailyPulse(sessionId: string, rawDataId: string) {
         .set({
           status: 'complete',
           data: JSON.stringify(processedSummary.content[0]?.text),
-          completedAt: new Date().toISOString()
+          completedAt: new Date()
         })
         .where(eq(dailyPulse.id, pulseId));
   
@@ -76,7 +74,7 @@ export async function processDailyPulse(sessionId: string, rawDataId: string) {
         .set({
           status: 'error',
           error: error instanceof Error ? error.message : 'Unknown error',
-          completedAt: new Date().toISOString()
+          completedAt: new Date()
         })
         .where(and(
           eq(dailyPulse.sessionId, sessionId),
@@ -85,16 +83,17 @@ export async function processDailyPulse(sessionId: string, rawDataId: string) {
       
       throw error;
     }
-  }
+}
 
 export async function getProcessedDataBySession(sessionId: string) {
-  const db = getDb();
+  const db = await getDb();
   
   try {
+    // PostgreSQL change: use first() instead of get()
     const processedResult = await db.select()
       .from(processedData)
       .where(eq(processedData.sessionId, sessionId))
-      .get();
+      .then(rows => rows[0]);
 
     if (!processedResult) {
       return null;
@@ -107,100 +106,15 @@ export async function getProcessedDataBySession(sessionId: string) {
   }
 }
 
-
-// function createEmptyDailyPulseResponse(screenData: any) {
-//   let startTime = new Date().toISOString();
-//   let endTime = new Date().toISOString();
-//   let frameCount = 0;
-  
-//   try {
-//     if (Array.isArray(screenData)) {
-
-//       if (screenData.length > 0) {
-//         const timestamps = screenData
-//           .filter(r => r.content?.timestamp)
-//           .map(r => r.content.timestamp);
-        
-//         if (timestamps.length > 0) {
-//           startTime = timestamps.sort()[0];
-//           endTime = timestamps.sort().pop() || endTime;
-//           frameCount = screenData.length;
-//         }
-//       }
-//     }
-//   } catch (e) {
-//     console.error("Error extracting basic info for empty response:", e);
-//   }
-  
-//   // Generate a session ID based on the timestamp
-//   const sessionId = `session-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-  
-//   return {
-//     session: {
-//       id: sessionId,
-//       startTime,
-//       endTime,
-//       duration: calculateDuration(startTime, endTime),
-//       frameCount
-//     },
-//     contextGroups: [],
-//     contextSwitches: [],
-//     flowStates: [],
-//     insights: {
-//       topActivities: [],
-//       interestCategories: [],
-//       behavioralPatterns: [],
-//       knowledgeAreas: []
-//     },
-//     timeline: {
-//       timePoints: [],
-//       intensityCurve: []
-//     }
-//   };
-// }
-
-
-// function calculateDuration(start: string, end: string): number {
-//   return Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000);
-// }
-
-
-// function validateDailyPulseResponse(response: any) {
-
-//   const requiredProps = ['session', 'contextGroups', 'contextSwitches', 'flowStates', 'insights', 'timeline'];
-  
-//   requiredProps.forEach(prop => {
-//     if (!response[prop]) {
-//       response[prop] = prop === 'session' 
-//         ? { id: `session-${Date.now()}`, startTime: new Date().toISOString(), endTime: new Date().toISOString(), duration: 0, frameCount: 0 }
-//         : prop === 'insights'
-//           ? { topActivities: [], interestCategories: [], behavioralPatterns: [], knowledgeAreas: [] }
-//           : prop === 'timeline'
-//             ? { timePoints: [], intensityCurve: [] }
-//             : [];
-//     }
-//   });
-  
-
-//   if (Array.isArray(response.contextGroups)) {
-//     response.contextGroups.forEach((group: any, index: number) => {
-//       if (!group.id) {
-//         group.id = `cg-${index + 1}`;
-//       }
-//     });
-//   }
-  
-//   return response;
-// }
-
 export async function getDailyPulseData(sessionId: string) {
-    const db = getDb();
+    const db = await getDb();
     
     try {
+      // PostgreSQL change: use first() instead of get()
       const pulseData = await db.select()
         .from(dailyPulse)
         .where(eq(dailyPulse.sessionId, sessionId))
-        .get();
+        .then(rows => rows[0]);
   
       if (!pulseData) {
         return { status: 'not_started', data: null };
@@ -223,4 +137,4 @@ export async function getDailyPulseData(sessionId: string) {
       console.error(`Error fetching daily pulse data for session ${sessionId}:`, error);
       throw error;
     }
-  }
+}

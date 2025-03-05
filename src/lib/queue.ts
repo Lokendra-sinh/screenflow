@@ -21,18 +21,18 @@ export const processQueue: QueueItem[] = [];
 let isProcessing = false;
 
 async function processItem(item: QueueItem) {
-  const db = getDb();
+  const db = await getDb();
   
   try {
-    
     await db.update(sessions)
       .set({ status: 'processing' })
       .where(eq(sessions.id, item.sessionId));
     
+    // PostgreSQL change: use first() instead of get()
     const rawDataRecord = await db.select()
       .from(rawData)
       .where(eq(rawData.id, item.rawDataId))
-      .get();
+      .then(rows => rows[0]);
     
     if (!rawDataRecord) {
       throw new Error(`Raw data not found with ID: ${item.rawDataId}`);
@@ -54,7 +54,7 @@ async function processItem(item: QueueItem) {
       id: crypto.randomUUID(),
       sessionId: item.sessionId,
       data: JSON.stringify(llmResponse),
-      processedAt: new Date().toISOString()
+      processedAt: new Date()
     });
     
     await db.update(sessions)

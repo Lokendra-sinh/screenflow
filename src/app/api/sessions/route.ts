@@ -5,7 +5,7 @@ import { desc, eq } from "drizzle-orm";
 
 export async function GET() {
   try {
-    const db = getDb();
+    const db = await getDb();
     
     // Get all sessions with their status and timing information
     const allSessions = await db.select({
@@ -22,19 +22,26 @@ export async function GET() {
     const enhancedSessions = await Promise.all(allSessions.map(async (session) => {
       // For completed sessions, get the job count
       let jobCount = 0;
-      let lastActivity = session.endTime || session.startTime;
+      let lastActivity: string = session.endTime || session.startTime;
       
       if (session.status === 'complete') {
         try {
+          // PostgreSQL change: use first() instead of get()
           const processedResult = await db.select()
             .from(processedData)
             .where(eq(processedData.sessionId, session.id))
-            .get();
+            .then(rows => rows[0]);
           
           if (processedResult) {
             const data = JSON.parse(processedResult.data);
             jobCount = data.count || 0;
-            lastActivity = processedResult.processedAt;
+            
+            // Convert Date to string before assignment
+            if (processedResult.processedAt) {
+              lastActivity = typeof processedResult.processedAt === 'string' 
+                ? processedResult.processedAt 
+                : processedResult.processedAt.toISOString();
+            }
           }
         } catch (error) {
           console.error(`Error getting job count for session ${session.id}:`, error);
