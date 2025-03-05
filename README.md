@@ -72,8 +72,13 @@ ANTHROPIC_API_KEY=your_claude_api_key
 DEEPSEEK_API_KEY=your_deepseek_api_key
 ```
 
+4. Run docker compose to start the postgres instance (Make sure to have docker installed)
+```
+docker-compose up -d
+```
 
-4. Start the development server:
+
+5. Start the development server:
 ```bash
 bun dev
 # or
