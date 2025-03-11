@@ -18,6 +18,7 @@ export function ScreenpipeSessionControls() {
             return response.json();
         },
         onSuccess: (data) => {
+            console.log("DATA is", data)
             if (data.data && data.data.sessionId) {
                 setSessionId(data.data.sessionId);
             }

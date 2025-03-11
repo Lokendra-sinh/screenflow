@@ -1,6 +1,4 @@
-import { getDb } from "./db";
-import { rawData, processedData, sessions } from "./schema";
-import { eq } from "drizzle-orm";
+import { executeRawSql } from '@/lib/raw-sql-client';
 import crypto from 'crypto';
 import { callLLMWithData } from "./ai/callLLMWithData";
 
@@ -9,7 +7,6 @@ interface QueueItem {
   rawDataId: string;
 }
 
-// Define the screen data type to fix the type error
 interface ScreenDataItem {
   timestamp: string;
   windowName: string;
@@ -21,22 +18,24 @@ export const processQueue: QueueItem[] = [];
 let isProcessing = false;
 
 async function processItem(item: QueueItem) {
-  const db = await getDb();
-  
   try {
-    await db.update(sessions)
-      .set({ status: 'processing' })
-      .where(eq(sessions.id, item.sessionId));
+
+    await executeRawSql(
+      "UPDATE sessions SET status = 'processing' WHERE id = $1",
+      [item.sessionId]
+    );
     
-    // PostgreSQL change: use first() instead of get()
-    const rawDataRecord = await db.select()
-      .from(rawData)
-      .where(eq(rawData.id, item.rawDataId))
-      .then(rows => rows[0]);
+    // Get raw data record
+    const rawDataResult = await executeRawSql(
+      "SELECT * FROM raw_data WHERE id = $1",
+      [item.rawDataId]
+    );
     
-    if (!rawDataRecord) {
+    if (!rawDataResult || rawDataResult.length === 0) {
       throw new Error(`Raw data not found with ID: ${item.rawDataId}`);
     }
+    
+    const rawDataRecord = rawDataResult[0];
     
     let parsedData;
     try {
@@ -50,24 +49,28 @@ async function processItem(item: QueueItem) {
     
     const llmResponse = await callLLMWithData(cleanedData);
     
-    await db.insert(processedData).values({
-      id: crypto.randomUUID(),
-      sessionId: item.sessionId,
-      data: JSON.stringify(llmResponse),
-      processedAt: new Date()
-    });
+    // Insert processed data
+    const processedDataId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await executeRawSql(
+      "INSERT INTO processed_data (id, session_id, data, processed_at) VALUES ($1, $2, $3, $4)",
+      [processedDataId, item.sessionId, JSON.stringify(llmResponse), now]
+    );
     
-    await db.update(sessions)
-      .set({ status: 'complete' })
-      .where(eq(sessions.id, item.sessionId));
+    // Update session status to complete
+    await executeRawSql(
+      "UPDATE sessions SET status = 'complete' WHERE id = $1",
+      [item.sessionId]
+    );
       
   } catch (error) {
     console.error(`Error processing item ${item.sessionId}:`, error);
     
     // Update session status to error
-    await db.update(sessions)
-      .set({ status: 'error' })
-      .where(eq(sessions.id, item.sessionId));
+    await executeRawSql(
+      "UPDATE sessions SET status = 'error' WHERE id = $1",
+      [item.sessionId]
+    );
   }
 }
 
@@ -79,22 +82,18 @@ function cleanAndPrepareData(data: any) {
     return { concatenatedText: "", screenData: [] as ScreenDataItem[] };
   }
   
-  // Extract and concatenate all text content from OCR items
+
   let concatenatedText = "";
   const screenData: ScreenDataItem[] = [];
   
-  // Sort the data by timestamp to maintain chronological order
   const sortedData = [...data.data].sort((a, b) => {
     return new Date(a.content.timestamp).getTime() - new Date(b.content.timestamp).getTime();
   });
   
   for (const item of sortedData) {
     if (item.type === "OCR" && item.content && item.content.text) {
-      // Add to the concatenated text with separators for readability
       if (item.content.text.trim()) {
         concatenatedText += item.content.text + "\n\n---\n\n";
-        
-        // Create a structured item for each screen capture
         screenData.push({
           timestamp: item.content.timestamp,
           windowName: item.content.windowName || "Unknown",
@@ -116,10 +115,9 @@ function cleanAndPrepareData(data: any) {
   };
 }
 
-// Worker function to continuously process the queue
+
 async function worker() {
   if (isProcessing || processQueue.length === 0) {
-    // Schedule next check
     setTimeout(worker, 1000);
     return;
   }
@@ -135,10 +133,9 @@ async function worker() {
     console.error("Worker encountered an error:", error);
   } finally {
     isProcessing = false;
-    // Schedule next check
     setTimeout(worker, 1000);
   }
 }
 
-// Start the worker
+
 worker();

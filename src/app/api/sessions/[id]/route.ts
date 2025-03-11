@@ -1,47 +1,47 @@
+import { executeRawSql } from "@/lib/raw-sql-client";
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
-import { sessions, processedData } from "@/lib/schema";
-import { eq } from "drizzle-orm";
 
-export async function GET( request: Request, { params } : { params: Promise<{id: string}>}) {
+export async function GET(request: Request, { params }: { params: Promise<{id: string}>}) {
   try {
-    const sessionId = (await params).id
+    const sessionId = (await params).id;
     
     if (!sessionId) {
       return NextResponse.json({ error: "Session ID is required" }, { status: 400 });
     }
     
-    const db = await getDb();
 
-    const session = await db.select()
-      .from(sessions)
-      .where(eq(sessions.id, sessionId))
-      .then(rows => rows[0]);
+    const sessionResult = await executeRawSql(
+      "SELECT * FROM sessions WHERE id = $1",
+      [sessionId]
+    );
     
-    if (!session) {
+    if (!sessionResult || sessionResult.length === 0) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
     
+    const session = {
+      id: sessionResult[0].id,
+      status: sessionResult[0].status,
+      startTime: sessionResult[0].start_time,
+      endTime: sessionResult[0].end_time,
+      createdAt: sessionResult[0].created_at
+    };
+    
+    // If session is still in progress, return just the status
     if (!['complete', 'error'].includes(session.status)) {
       return NextResponse.json({
-        session: {
-          id: session.id,
-          status: session.status,
-          startTime: session.startTime,
-          endTime: session.endTime,
-          createdAt: session.createdAt
-        },
+        session,
         message: "Session is still being processed"
       });
     }
     
-    // For completed sessions, get the processed data - PostgreSQL change: use first() instead of get()
-    const processedResult = await db.select()
-      .from(processedData)
-      .where(eq(processedData.sessionId, sessionId))
-      .then(rows => rows[0]);
+    // For completed sessions, get the processed data
+    const processedResult = await executeRawSql(
+      "SELECT * FROM processed_data WHERE session_id = $1",
+      [sessionId]
+    );
     
-    if (!processedResult) {
+    if (!processedResult || processedResult.length === 0) {
       return NextResponse.json({ 
         error: "Processed data not found for this session",
         session
@@ -51,7 +51,7 @@ export async function GET( request: Request, { params } : { params: Promise<{id:
     // Parse the processed data
     let jobData;
     try {
-      jobData = JSON.parse(processedResult.data);
+      jobData = JSON.parse(processedResult[0].data);
     } catch (error) {
       console.error("Error parsing processed data:", error);
       return NextResponse.json({ 
@@ -64,20 +64,16 @@ export async function GET( request: Request, { params } : { params: Promise<{id:
     const startTime = new Date(session.startTime);
     const endTime = session.endTime ? new Date(session.endTime) : new Date();
     const duration = Math.round((endTime.getTime() - startTime.getTime()) / 1000); // in seconds
-    const processedAt = new Date(processedResult.processedAt);
+    const processedAt = new Date(processedResult[0].processed_at);
     
     // Return the enhanced session data
     return NextResponse.json({
       session: {
-        id: session.id,
-        status: session.status,
-        startTime: session.startTime,
-        endTime: session.endTime,
-        createdAt: session.createdAt,
+        ...session,
         formattedStartTime: startTime.toLocaleString(),
         formattedEndTime: endTime.toLocaleString(),
         duration,
-        processedAt: processedResult.processedAt,
+        processedAt: processedResult[0].processed_at,
         formattedProcessedAt: processedAt.toLocaleString(),
         processingTime: Math.round((processedAt.getTime() - endTime.getTime()) / 1000) // in seconds
       },

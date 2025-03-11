@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { spawn } from "child_process";
 import crypto from "crypto";
 import { getDb } from "@/lib/db";
-import { sessions } from "@/lib/schema";
 
 export async function POST(): Promise<Response> {
+  console.log("inside start route")
   const originalPromise = new Promise<Response>(async (resolve) => {
     try {
       const healthResponse = await fetch("http://localhost:3030/health");
@@ -56,12 +56,16 @@ export async function POST(): Promise<Response> {
 
           // INSERT THE SESSION INTO THE DATABASE
           const db = await getDb();
-            await db.insert(sessions).values({
-              id: sessionId,
-              startTime: now.toISOString(),
-              status: "recording",
-              createdAt: now,
-            });
+          await db.insert('sessions').values({
+            id: sessionId,
+            start_time: now.toISOString(),
+            status: "recording",
+            created_at: now,
+          });
+
+            console.log("After DB in start")
+
+
 
           return resolve(
             NextResponse.json({

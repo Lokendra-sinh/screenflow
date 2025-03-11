@@ -1,78 +1,182 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import { join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
-import * as schema from './schema';
+import { executeRawSql } from './raw-sql-client';
 
-// Singleton pattern with promise
-let dbPromise: Promise<any> | null = null;
-let sqlClient: postgres.Sql<Record<string, unknown>> | null = null;
 
-export function getDb() {
-  if (!dbPromise) {
-    console.log('Initializing database connection...');
-    
-    dbPromise = (async () => {
+export async function getDb() {
+  return {
+
+    select: (columns = "*") => ({
+      from: (table: string) => ({
+        where: (condition: string) => ({
+          then: async (callback: (rows: any[]) => any) => {
+            const result = await executeRawSql(`SELECT ${columns} FROM ${table} WHERE ${condition}`);
+            return callback(result);
+          },
+          get: async () => {
+            const result = await executeRawSql(`SELECT ${columns} FROM ${table} WHERE ${condition}`);
+            return result[0];
+          }
+        }),
+        orderBy: (orderClause: string) => ({
+          then: async (callback: (rows: any[]) => any) => {
+            const result = await executeRawSql(`SELECT ${columns} FROM ${table} ORDER BY ${orderClause}`);
+            return callback(result);
+          }
+        }),
+        get: async () => {
+          const result = await executeRawSql(`SELECT ${columns} FROM ${table}`);
+          return result;
+        }
+      })
+    }),
+
+    // INSERT operations
+    insert: (table: string) => ({
+      values: async (data: any) => {
+        const columns = Object.keys(data).join(', ');
+        const placeholders = Object.keys(data).map((_, i) => `$${i + 1}`).join(', ');
+        const values = Object.values(data);
+        
+        return executeRawSql(
+          `INSERT INTO ${table} (${columns}) VALUES (${placeholders}) RETURNING *`,
+          values
+        );
+      },
+      returning: (returning: any) => ({
+        values: async (data: any) => {
+          const columns = Object.keys(data).join(', ');
+          const placeholders = Object.keys(data).map((_, i) => `$${i + 1}`).join(', ');
+          const values = Object.values(data);
+          const returningClause = Object.keys(returning).join(', ');
+          
+          return executeRawSql(
+            `INSERT INTO ${table} (${columns}) VALUES (${placeholders}) RETURNING ${returningClause}`,
+            values
+          );
+        }
+      })
+    }),
+
+    // UPDATE operations
+    update: (table: string) => ({
+      set: (data: any) => ({
+        where: async (condition: string) => {
+          const setClause = Object.entries(data)
+            .map(([key], i) => `${key} = $${i + 1}`)
+            .join(', ');
+          const values = Object.values(data);
+          
+          return executeRawSql(
+            `UPDATE ${table} SET ${setClause} WHERE ${condition} RETURNING *`,
+            values
+          );
+        }
+      })
+    }),
+
+    // DELETE operations
+    delete: (table: string) => ({
+      where: async (condition: string) => {
+        return executeRawSql(`DELETE FROM ${table} WHERE ${condition} RETURNING *`);
+      }
+    }),
+
+    // TRANSACTION operations
+    transaction: async (callback: (tx: any) => Promise<any>) => {
+      await executeRawSql("BEGIN");
+      
+      const tx = {
+        insert: (table: string) => ({
+          values: async (data: any) => {
+            const columns = Object.keys(data).join(', ');
+            const placeholders = Object.keys(data).map((_, i) => `$${i + 1}`).join(', ');
+            const values = Object.values(data);
+            
+            return executeRawSql(
+              `INSERT INTO ${table} (${columns}) VALUES (${placeholders}) RETURNING *`,
+              values
+            );
+          },
+          returning: (returning: any) => ({
+            values: async (data: any) => {
+              const columns = Object.keys(data).join(', ');
+              const placeholders = Object.keys(data).map((_, i) => `$${i + 1}`).join(', ');
+              const values = Object.values(data);
+              const returningClause = Object.keys(returning).join(', ');
+              
+              return executeRawSql(
+                `INSERT INTO ${table} (${columns}) VALUES (${placeholders}) RETURNING ${returningClause}`,
+                values
+              );
+            }
+          })
+        }),
+        update: (table: string) => ({
+          set: (data: any) => ({
+            where: async (condition: string) => {
+              const setClause = Object.entries(data)
+                .map(([key ], i) => `${key} = $${i + 1}`)
+                .join(', ');
+              const values = Object.values(data);
+              
+              return executeRawSql(
+                `UPDATE ${table} SET ${setClause} WHERE ${condition} RETURNING *`,
+                values
+              );
+            }
+          })
+        })
+      };
+      
       try {
-        // Ensure data directory exists for migrations
-        const dataDir = join(process.cwd(), 'data');
-        if (!existsSync(dataDir)) {
-          mkdirSync(dataDir, { recursive: true });
-        }
-        
-        // Create the database connection
-        const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/screenpipe_jobs';
-        
-        console.log('Connecting to PostgreSQL...');
-        sqlClient = postgres(connectionString, {
-          max: 10, 
-        });
-        
-        const db = drizzle(sqlClient, { schema });
-        
-        // // Run migrations if they exist
-        const migrationsFolder = join(process.cwd(), 'drizzle');
-        if (existsSync(migrationsFolder)) {
-          console.log('Running migrations...');
-          await migrate(db, { migrationsFolder });
-          console.log('Migrations completed');
-        }
-        
-        console.log('Database connection established');
-        return db;
+        const result = await callback(tx);
+        await executeRawSql("COMMIT");
+        return result;
       } catch (error) {
-        console.error('Database initialization error:', error);
-        // Clear the promise so we can retry initialization
-        dbPromise = null;
+        await executeRawSql("ROLLBACK");
         throw error;
       }
-    })();
-  }
-  
-  return dbPromise;
+    }
+  };
 }
 
-// Function to close the database connection
-export async function closeDb() {
-  if (sqlClient) {
-    await sqlClient.end();
-    sqlClient = null;
-  }
-  
-  dbPromise = null;
-  console.log('Database connection closed');
+
+export const sessions = {
+  id: 'id',
+  startTime: 'start_time',
+  endTime: 'end_time',
+  status: 'status',
+  createdAt: 'created_at'
+};
+
+export const rawData = {
+  id: 'id',
+  sessionId: 'session_id',
+  data: 'data',
+  capturedAt: 'captured_at'
+};
+
+export const processedData = {
+  id: 'id',
+  sessionId: 'session_id',
+  data: 'data',
+  processedAt: 'processed_at'
+};
+
+export const dailyPulse = {
+  id: 'id',
+  sessionId: 'session_id',
+  status: 'status',
+  data: 'data',
+  startedAt: 'started_at',
+  completedAt: 'completed_at',
+  error: 'error'
+};
+
+
+export function eq(field: string, value: any): string {
+  return `${field} = ${typeof value === 'string' ? `'${value}'` : value}`;
 }
 
-// Handle application shutdown gracefully
-process.on('SIGINT', async () => {
-  console.log('Shutting down...');
-  await closeDb();
-  process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-  console.log('Shutting down...');
-  await closeDb();
-  process.exit(0);
-});
+export function desc(field: string): string {
+  return `${field} DESC`;
+}

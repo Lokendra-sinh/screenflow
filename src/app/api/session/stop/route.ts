@@ -1,9 +1,8 @@
+// route stop.ts
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
 import { pipe } from "@screenpipe/js"
-import { getDb } from "@/lib/db";
-import { rawData, sessions } from "@/lib/schema";
-import { eq } from "drizzle-orm";
+import { executeRawSql } from "@/lib/raw-sql-client";
 import crypto from "crypto";
 import { processDailyPulse } from "@/lib/processors/process-daily-pulse";
 import { processQueue } from "@/lib/queue";
@@ -18,15 +17,13 @@ export async function POST(req: Request): Promise<Response> {
       }, { status: 400 });
     }
 
-    const db = await getDb();
-
-    // PostgreSQL change: Use first() instead of get()
-    const existingSession = await db.select()
-      .from(sessions)
-      .where(eq(sessions.id, sessionId))
-      .then(rows => rows[0]);
+    // Check if session exists
+    const existingSession = await executeRawSql(
+      "SELECT * FROM sessions WHERE id = $1",
+      [sessionId]
+    );
       
-    if (!existingSession) {
+    if (!existingSession || existingSession.length === 0) {
       return NextResponse.json({ 
         success: false, 
         error: "Session not found" 
@@ -34,7 +31,7 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     const results = await pipe.queryScreenpipe({
-      startTime: existingSession.startTime,
+      startTime: existingSession[0].start_time,
       limit: 2000,
       contentType: "ocr",
     });
@@ -42,31 +39,35 @@ export async function POST(req: Request): Promise<Response> {
     console.log("PIPE RESULTS are:", results!.data)
 
     if (results && results.data.length > 0) {
-      const now = new Date();
+      const now = new Date().toISOString();
       let rawDataId = "";
 
-      // PostgreSQL transaction handling
-      await db.transaction(async (tx) => {
-        // Insert raw data and get the ID
-        const rawDataResult = await tx.insert(rawData)
-          .values({
-            id: crypto.randomUUID(),
-            sessionId: sessionId,
-            data: JSON.stringify(results),
-            capturedAt: now
-          })
-          .returning({ id: rawData.id });
-
+      // Begin transaction
+      await executeRawSql("BEGIN");
+      
+      try {
+        // Insert raw data and get ID
+        const newRawDataId = crypto.randomUUID();
+        const rawDataResult = await executeRawSql(
+          "INSERT INTO raw_data (id, session_id, data, captured_at) VALUES ($1, $2, $3, $4) RETURNING id",
+          [newRawDataId, sessionId, JSON.stringify(results), now]
+        );
+        
         rawDataId = rawDataResult[0].id;
 
         // Update session status
-        await tx.update(sessions)
-          .set({
-            status: 'processing', 
-            endTime: now.toISOString(),
-          })
-          .where(eq(sessions.id, sessionId));
-      });
+        await executeRawSql(
+          "UPDATE sessions SET status = 'processing', end_time = $1 WHERE id = $2",
+          [now, sessionId]
+        );
+        
+        // Commit transaction
+        await executeRawSql("COMMIT");
+      } catch (error) {
+        // Rollback transaction on error
+        await executeRawSql("ROLLBACK");
+        throw error;
+      }
 
       processQueue.push({
         sessionId,
@@ -79,24 +80,24 @@ export async function POST(req: Request): Promise<Response> {
             console.error(`Error in daily pulse processing for session ${sessionId}:`, error);
           });
 
-        await db.update(sessions)
-          .set({ status: 'complete' })
-          .where(eq(sessions.id, sessionId));
+        await executeRawSql(
+          "UPDATE sessions SET status = 'complete' WHERE id = $1",
+          [sessionId]
+        );
           
       } catch (error) {
         console.error('Error processing session data:', error);
         
-        await db.update(sessions)
-          .set({ status: 'error' })
-          .where(eq(sessions.id, sessionId));
+        await executeRawSql(
+          "UPDATE sessions SET status = 'error' WHERE id = $1",
+          [sessionId]
+        );
       }
     } else {
-      await db.update(sessions)
-        .set({
-          status: 'captured',
-          endTime: new Date().toISOString(),
-        })
-        .where(eq(sessions.id, sessionId));
+      await executeRawSql(
+        "UPDATE sessions SET status = 'captured', end_time = $1 WHERE id = $2",
+        [new Date().toISOString(), sessionId]
+      );
     }
 
     return new Promise((resolve) => {
